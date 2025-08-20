@@ -95,12 +95,11 @@ export const OnboardingFlow: React.FC<Props> = ({ onComplete }) => {
     });
   };
 
-  const handleCommit = () => {
+  const handleCommit = async () => {
     // Save goal to store
     if (state.goal) {
-      // Add the main goal
-      addGoal({
-        id: `goal-${Date.now()}`,
+      // Add the main goal and wait for the response to get the real goal ID
+      const response = await addGoal({
         title: state.goal.title,
         metric: state.goal.targetValue?.toString() || '',
         deadline: state.goal.targetDate.toISOString(),
@@ -114,20 +113,35 @@ export const OnboardingFlow: React.FC<Props> = ({ onComplete }) => {
         milestones: state.milestones,
       });
 
-      // Convert and add actions to daily actions
+      // Get the created goal from the store (it was just added)
+      const goals = useStore.getState().goals;
+      const createdGoal = goals[0]; // The most recently added goal
+
+      // Convert and add actions to daily actions with the real goal ID
       const addAction = useStore.getState().addAction;
-      state.actions.forEach((action) => {
+      for (const action of state.actions) {
+        // Format frequency string
+        let frequencyStr = 'Daily'; // Default
+        if (action.type === 'one-time') {
+          frequencyStr = 'Once';
+        } else if (action.frequency === 'weekly' && action.daysPerWeek) {
+          frequencyStr = `${action.daysPerWeek}x/week`;
+        } else if (action.frequency === 'daily') {
+          frequencyStr = 'Daily';
+        }
+        
         const dailyAction = {
-          id: action.id,
           title: action.title,
+          goalId: createdGoal?.id, // Use the real goal ID from backend
           goalTitle: state.goal.title,
           type: action.type === 'one-time' ? 'one-time' as const : 'commitment' as const,
+          frequency: frequencyStr,
           time: action.timeOfDay,
           streak: 0,
           done: false,
         };
-        addAction(dailyAction);
-      });
+        await addAction(dailyAction);
+      }
 
       // Store milestones in localStorage for now (or create a milestone slice)
       localStorage.setItem('onboarding_milestones', JSON.stringify(state.milestones));

@@ -44,11 +44,47 @@ export const ProgressMVPEnhanced = () => {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   
   // Calculate overall metrics
-  const totalActionsThisWeek = actions.length * 7;
+  // Consistency = completion rate over ALL days since starting
+  
+  // For Day 1 (no history), use today's completion
+  // For Day 2+, use historical average
+  const completedToday = actions.filter(a => a.done).length;
+  const totalToday = actions.length;
+  
+  // Check if we have any completed actions from previous days
+  const hasHistory = completedActions.some(ca => {
+    const actionDate = new Date(ca.completedAt);
+    const today = new Date();
+    actionDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return actionDate.getTime() < today.getTime();
+  });
+  
+  let overallConsistency = 0;
+  
+  if (!hasHistory) {
+    // Day 1: Just use today's completion rate
+    overallConsistency = totalToday > 0 
+      ? Math.round((completedToday / totalToday) * 100) 
+      : 0;
+  } else {
+    // Day 2+: Calculate based on all days since starting
+    const firstActionDate = new Date(Math.min(...completedActions.map(a => new Date(a.completedAt).getTime())));
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    firstActionDate.setHours(0, 0, 0, 0);
+    const daysSinceStart = Math.max(1, Math.ceil((today.getTime() - firstActionDate.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    // Total expected actions = daily actions * days since start
+    const totalExpectedActions = actions.length * daysSinceStart;
+    const totalCompletedActions = completedActions.length + completedToday;
+    
+    overallConsistency = totalExpectedActions > 0 
+      ? Math.round((totalCompletedActions / totalExpectedActions) * 100) 
+      : 0;
+  }
+  
   const completedThisWeek = actions.filter(a => a.done).length;
-  const overallConsistency = totalActionsThisWeek > 0 
-    ? Math.round((completedThisWeek / totalActionsThisWeek) * 100) 
-    : 0;
   
   // Calculate total score
   const streakBonus = actions.reduce((sum, a) => sum + (a.streak || 0), 0) * 5;
@@ -119,11 +155,73 @@ export const ProgressMVPEnhanced = () => {
   
   // Helper functions for goal data
   const getGoalConsistency = (goalId: string) => {
-    return 75 + Math.floor(Math.random() * 20);
+    // Get actions linked to this specific goal
+    const goalActions = actions.filter(a => a.goalId === goalId);
+    const completedGoalActions = goalActions.filter(a => a.done).length;
+    const totalGoalActions = goalActions.length;
+    
+    // Debug logging
+    console.log(`Goal ${goalId} consistency calculation:`, {
+      totalActions: actions.length,
+      goalActions: goalActions.length,
+      completedGoalActions,
+      allActions: actions.map(a => ({ title: a.title, goalId: a.goalId, done: a.done }))
+    });
+    
+    // If no actions are linked to this goal yet, return overall consistency as fallback
+    if (totalGoalActions === 0) {
+      console.log(`No actions linked to goal ${goalId}, using overall consistency`);
+      return overallConsistency;
+    }
+    
+    // Get historical completions for this goal
+    const historicalGoalCompletions = completedActions.filter(ca => ca.goalId === goalId);
+    
+    // Check if we have history for this goal
+    const hasGoalHistory = historicalGoalCompletions.some(ca => {
+      const actionDate = new Date(ca.completedAt);
+      const today = new Date();
+      actionDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      return actionDate.getTime() < today.getTime();
+    });
+    
+    if (!hasGoalHistory) {
+      // No history for this goal - use today's completion
+      return totalGoalActions > 0 
+        ? Math.round((completedGoalActions / totalGoalActions) * 100)
+        : 0;
+    } else {
+      // Calculate based on all days since this goal had its first action
+      const firstGoalActionDate = new Date(
+        Math.min(...historicalGoalCompletions.map(a => new Date(a.completedAt).getTime()))
+      );
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      firstGoalActionDate.setHours(0, 0, 0, 0);
+      const daysSinceGoalStart = Math.max(1, Math.ceil((today.getTime() - firstGoalActionDate.getTime()) / (1000 * 60 * 60 * 24)));
+      
+      // Total expected for this goal = goal's daily actions * days since start
+      const totalExpectedForGoal = totalGoalActions * daysSinceGoalStart;
+      const totalCompletedForGoal = historicalGoalCompletions.length + completedGoalActions;
+      
+      return totalExpectedForGoal > 0 
+        ? Math.round((totalCompletedForGoal / totalExpectedForGoal) * 100)
+        : 0;
+    }
   };
   
   const getGoalStreak = (goalId: string) => {
-    return Math.floor(Math.random() * 15) + 1;
+    // Get actions linked to this goal that have streak data
+    const goalActions = actions.filter(a => a.goalId === goalId);
+    
+    // Return the highest streak among this goal's actions
+    // (or could sum/average them depending on desired behavior)
+    const maxStreak = goalActions.reduce((max, action) => {
+      return Math.max(max, action.streak || 0);
+    }, 0);
+    
+    return maxStreak;
   };
   
   const getMilestoneProgress = (goal: any) => {
@@ -579,53 +677,91 @@ export const ProgressMVPEnhanced = () => {
                       </View>
                     </View>
                     
-                    {/* Enhanced Week Schedule with Pills */}
-                    <View style={styles.weekSchedule}>
-                      <Text style={styles.weekLabel}>THIS WEEK</Text>
-                      <View style={styles.weekPills}>
-                        {weekSchedule.map((day, i) => (
-                          <Pressable 
-                            key={i} 
-                            style={[
-                              styles.dayPill,
-                              day.hasAction && day.isCompleted && styles.dayCompleted,
-                              day.hasAction && !day.isCompleted && !day.isMissed && styles.dayScheduled,
-                              day.isMissed && styles.dayMissed,
-                              day.isOptional && styles.dayOptional,
-                              day.isToday && styles.dayToday,
-                            ]}
-                            onLongPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              // Show action sheet
-                            }}
-                          >
-                            <Text style={[
-                              styles.dayText,
-                              (day.isCompleted || day.isToday) && styles.dayTextActive
-                            ]}>
-                              {day.day}
-                            </Text>
-                            {day.hasAction && day.isCompleted && (
-                              <Check size={10} color={goalColor} />
-                            )}
-                            {day.isMissed && (
-                              <X size={10} color="#FF6B6B" />
-                            )}
-                            {day.isOptional && !day.isCompleted && (
-                              <Minus size={8} color="rgba(255,255,255,0.3)" />
-                            )}
-                          </Pressable>
-                        ))}
-                      </View>
-                    </View>
                     
-                    {/* Expanded Content */}
+                    {/* Expanded Content - Weekly History */}
                     {isExpanded && (
                       <Animated.View 
                         entering={FadeIn.duration(220)}
                         style={styles.expandedContent}
                       >
-                        {/* Additional expanded content here */}
+                        {/* Linked Actions Overview */}
+                        <View style={styles.linkedActionsSection}>
+                          <Text style={styles.weekTitle}>📍 Linked Actions</Text>
+                          {(() => {
+                            const goalActions = actions.filter(a => a.goalId === goal.id);
+                            
+                            if (goalActions.length === 0) {
+                              // Check if there are ANY actions at all
+                              const hasAnyActions = actions.length > 0;
+                              
+                              return (
+                                <View style={styles.noActionsContainer}>
+                                  <Text style={styles.noActionsText}>
+                                    {hasAnyActions 
+                                      ? "No actions linked to this goal yet.\nYour actions may need to be assigned to goals."
+                                      : "No actions created yet.\nAdd actions in the Daily screen."}
+                                  </Text>
+                                  {hasAnyActions && (
+                                    <Text style={styles.actionHint}>
+                                      Current actions without goal assignment:
+                                      {actions.map(a => `\n• ${a.title}`).join('')}
+                                    </Text>
+                                  )}
+                                </View>
+                              );
+                            }
+                            
+                            return (
+                              <View style={styles.linkedActionsList}>
+                                {goalActions.map((action, index) => {
+                                  // Determine frequency based on type or default to daily
+                                  const frequency = action.frequency || 
+                                    (action.type === 'one-time' ? 'Once' : 'Daily');
+                                  
+                                  return (
+                                    <View key={action.id} style={styles.linkedActionItem}>
+                                      <View style={styles.linkedActionLeft}>
+                                        <View style={[
+                                          styles.actionBullet,
+                                          action.done && styles.actionBulletDone
+                                        ]} />
+                                        <View style={styles.actionInfo}>
+                                          <Text style={styles.linkedActionTitle}>
+                                            {action.title}
+                                          </Text>
+                                          <Text style={styles.actionFrequency}>
+                                            {frequency} {action.time && `• ${action.time}`}
+                                          </Text>
+                                        </View>
+                                      </View>
+                                      <View style={styles.linkedActionRight}>
+                                        {action.done && (
+                                          <CheckCircle size={16} color="#00FF88" />
+                                        )}
+                                      </View>
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            );
+                          })()}
+                        </View>
+                        
+                        {/* Insights */}
+                        <View style={styles.insightsSection}>
+                          <View style={styles.insightCard}>
+                            <TrendingUp size={16} color="#00FF88" />
+                            <Text style={styles.insightText}>
+                              Consistency: {goalConsistency}%
+                            </Text>
+                          </View>
+                          <View style={styles.insightCard}>
+                            <AlertCircle size={16} color="#FFD700" />
+                            <Text style={styles.insightText}>
+                              Streak: {goalStreak} days
+                            </Text>
+                          </View>
+                        </View>
                       </Animated.View>
                     )}
                   </BlurView>
@@ -1231,5 +1367,224 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 16,
     fontWeight: '500',
+  },
+  
+  // Weekly History Styles
+  weekOverview: {
+    marginBottom: 20,
+  },
+  weekTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  weekDots: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+  dayColumn: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  dayLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: '500',
+  },
+  todayLabel: {
+    color: '#FFD700',
+    fontWeight: '700',
+  },
+  dayDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  
+  // Daily Breakdown Styles
+  dailyBreakdown: {
+    marginBottom: 16,
+  },
+  breakdownTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  noActionsText: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  daySection: {
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  dayName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  dayDate: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 10,
+  },
+  actionCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCheckboxDone: {
+    borderColor: '#00FF88',
+    backgroundColor: 'rgba(0,255,136,0.1)',
+  },
+  actionTitle: {
+    flex: 1,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  actionTitleDone: {
+    color: '#FFFFFF',
+    textDecorationLine: 'line-through',
+    textDecorationColor: 'rgba(255,255,255,0.3)',
+  },
+  actionTime: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  
+  // Insights Styles
+  insightsSection: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  insightCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  insightText: {
+    flex: 1,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+  },
+
+  // Linked Actions Section Styles
+  linkedActionsSection: {
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  linkedActionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  linkedActionsList: {
+    gap: 8,
+  },
+  linkedActionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  linkedActionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  actionBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  actionBulletDone: {
+    backgroundColor: '#00FF88',
+  },
+  linkedActionTitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  actionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  actionFrequency: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 2,
+  },
+  linkedActionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  linkedActionTime: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  emptyActions: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyActionsText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  actionHint: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.3)',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    lineHeight: 18,
   },
 });

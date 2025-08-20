@@ -374,6 +374,7 @@ app.get('/api/actions/daily', async (req, res) => {
       include: {
         goal: {
           select: {
+            id: true,
             title: true,
             color: true
           }
@@ -381,9 +382,15 @@ app.get('/api/actions/daily', async (req, res) => {
       }
     });
     
+    // Ensure goalId is explicitly included in the response
+    const actionsWithGoalId = actions.map(action => ({
+      ...action,
+      goalId: action.goalId || action.goal?.id
+    }));
+    
     res.json({
       success: true,
-      data: actions
+      data: actionsWithGoalId
     });
   } catch (error) {
     res.status(500).json({ 
@@ -406,7 +413,7 @@ app.post('/api/actions', async (req, res) => {
     }
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
-    const { title, time, goalId } = req.body;
+    const { title, time, goalId, frequency } = req.body;
     
     const action = await prisma.action.create({
       data: {
@@ -414,6 +421,7 @@ app.post('/api/actions', async (req, res) => {
         title,
         time: time || null,
         goalId: goalId || null,
+        frequency: frequency || 'Daily',
         date: new Date()
       }
     });

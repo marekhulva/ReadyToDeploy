@@ -43,17 +43,25 @@ export const ProfileEnhanced = () => {
   const user = useStore(s => s.user);
   const goals = useStore(s => s.goals);
   const circleFeed = useStore(s => s.circleFeed);
+  const followFeed = useStore(s => s.followFeed);
   const completedActions = useStore(s => s.completedActions);
   const logout = useStore(s => s.logout);
   const [selectedAction, setSelectedAction] = useState<GridAction | null>(null);
   
-  // Get user's own posts
-  const userPosts = circleFeed.filter(post => post.user === (user?.name || 'User'));
+  // Get user's own posts from both feeds
+  const allPosts = [...circleFeed, ...followFeed];
+  // Match posts by the current user (could be 'You', user.name, or user.email)
+  const userPosts = allPosts.filter(post => 
+    post.user === 'You' || 
+    post.user === user?.name || 
+    post.user === user?.email ||
+    post.user === 'User'
+  );
   const pinnedPosts = userPosts.slice(0, 2); // First 2 as pinned
   const recentPosts = userPosts.slice(2, 5); // Next 3 as recent
   
   // Convert completed actions to grid format
-  const gridActions: GridAction[] = completedActions.map((action) => ({
+  const gridActionsFromCompleted: GridAction[] = completedActions.map((action) => ({
     id: action.id,
     type: action.type,
     title: action.title,
@@ -64,20 +72,26 @@ export const ProfileEnhanced = () => {
     streak: action.streak,
   }));
   
-  // Add mock data if we don't have enough completed actions yet
-  const mockData = Array(Math.max(0, 12 - gridActions.length)).fill(null).map((_, i) => ({
-    id: `mock-${i}`,
-    type: i % 3 === 0 ? 'photo' : i % 2 === 0 ? 'audio' : 'check' as const,
-    title: ['Morning Workout', 'Meditation', 'Reading', 'Journaling'][i % 4],
-    completedAt: new Date(Date.now() - i * 86400000),
-    mediaUrl: i % 3 === 0 ? `https://picsum.photos/400/400?random=${i + 100}` : undefined,
-    isPrivate: i % 4 === 0,
-    category: ['fitness', 'mindfulness', 'learning', 'health'][i % 4],
-    streak: Math.floor(Math.random() * 30),
-  }));
+  // Convert user posts to grid format (for posts that represent completed actions)
+  const gridActionsFromPosts: GridAction[] = userPosts
+    .filter(post => post.type === 'checkin' || post.type === 'photo' || post.type === 'status')
+    .map((post) => ({
+      id: `post-${post.id}`,
+      type: post.type === 'photo' && post.photoUri ? 'photo' : 
+            post.type === 'checkin' ? 'milestone' : 'check',
+      title: post.actionTitle || post.content.substring(0, 50),
+      completedAt: new Date(), // Convert post.time to actual date if needed
+      mediaUrl: post.photoUri,
+      isPrivate: post.visibility === 'circle',
+      category: post.goal || 'general',
+      streak: post.streak,
+    }));
   
-  // Combine real and mock data, showing most recent first
-  const allGridActions = [...gridActions, ...mockData]
+  // Combine all sources and show most recent first
+  const allGridActions = [...gridActionsFromCompleted, ...gridActionsFromPosts]
+    .filter((action, index, self) => 
+      index === self.findIndex((a) => a.id === action.id) // Remove duplicates
+    )
     .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
     .slice(0, 12);
   
@@ -314,12 +328,22 @@ export const ProfileEnhanced = () => {
               <Grid3x3 size={20} color="#FFD700" />
               <Text style={styles.sectionTitle}>Achievement Gallery</Text>
               <View style={styles.gridStats}>
-                <Text style={styles.gridStatsText}>{allGridActions.length} actions</Text>
+                <Text style={styles.gridStatsText}>
+                  {allGridActions.length > 0 ? `${allGridActions.length} achievements` : 'No achievements yet'}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.achievementGrid}>
-              {allGridActions.map((action, index) => (
+            {allGridActions.length === 0 ? (
+              <View style={styles.emptyGallery}>
+                <Camera size={48} color="rgba(255,215,0,0.3)" />
+                <Text style={styles.emptyGalleryText}>
+                  Complete actions and share your progress{'\n'}to build your achievement gallery
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.achievementGrid}>
+                {allGridActions.map((action, index) => (
                 <Animated.View
                   key={action.id}
                   entering={FadeInDown.delay(index * 50).springify()}
@@ -396,6 +420,7 @@ export const ProfileEnhanced = () => {
                 </Animated.View>
               ))}
             </View>
+            )}
 
             {/* View All Button */}
             <Pressable style={styles.viewAllButton}>
@@ -969,6 +994,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.7)',
     fontWeight: '600',
+  },
+  
+  // Empty gallery styles
+  emptyGallery: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyGalleryText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+    marginTop: 16,
+    lineHeight: 20,
   },
   
   // Logout button styles

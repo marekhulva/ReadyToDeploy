@@ -4,8 +4,10 @@ import { apiService } from '../../services/api.service';
 export type ActionItem = { 
   id: string; 
   title: string; 
+  goalId?: string;  // Link to specific goal
   goalTitle?: string; 
   type:'commitment'|'performance'|'one-time'; 
+  frequency?: string; // e.g., "Daily", "3x/week", "Weekly"
   time?: string; 
   streak: number; 
   done?: boolean; 
@@ -15,6 +17,7 @@ export type CompletedAction = {
   id: string;
   actionId: string;
   title: string;
+  goalId?: string;  // Link to specific goal
   goalTitle?: string;
   completedAt: Date;
   isPrivate: boolean;
@@ -51,8 +54,10 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
         const actions = (response.data || []).map((a: any) => ({
           id: a.id,
           title: a.title,
+          goalId: a.goalId || a.goal?.id,  // Include goalId
           goalTitle: a.goal?.title,
           type: 'commitment' as const,
+          frequency: a.frequency || 'Daily',
           time: a.time,
           streak: 0,
           done: a.done
@@ -88,15 +93,18 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
       const response = await apiService.createAction({
         title: actionData.title || '',
         time: actionData.time,
-        goalId: undefined // Add goalId mapping if needed
+        goalId: actionData.goalId,  // Pass goalId from action data
+        frequency: actionData.frequency || 'Daily'
       });
       
       if (response.success && response.data) {
         const newAction: ActionItem = {
           id: response.data.id,
           title: response.data.title,
+          goalId: response.data.goalId || response.data.goal?.id,  // Include goalId
           goalTitle: response.data.goal?.title,
           type: 'commitment',
+          frequency: response.data.frequency || 'Daily',
           time: response.data.time,
           streak: 0,
           done: false
@@ -114,7 +122,7 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
       const response = await apiService.updateAction(id, {
         title: updates.title,
         time: updates.time,
-        goalId: undefined // Add goalId mapping if needed
+        goalId: updates.goalId  // Include goalId in updates
       });
       
       if (response.success && response.data) {

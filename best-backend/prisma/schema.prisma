@@ -65,6 +65,7 @@ model Action {
   userId        String
   goalId        String?
   title         String
+  frequency     String?  // e.g., "Daily", "3x/week", "Weekly"
   time          String?
   done          Boolean  @default(false)
   date          DateTime @default(now())
