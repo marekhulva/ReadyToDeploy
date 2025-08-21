@@ -4,6 +4,16 @@ import { apiService } from '../../services/api.service';
 export type PostType = 'checkin'|'status'|'photo'|'audio'|'goal';
 export type Visibility = 'circle'|'follow';
 
+export type Comment = {
+  id: string;
+  postId: string;
+  user: string;
+  avatar?: string;
+  content: string;
+  time: string;
+  timestamp: string;
+};
+
 export type Post = {
   id: string;
   user: string;
@@ -15,7 +25,8 @@ export type Post = {
   timestamp?: string;           // ISO date string for sorting
   reactions: Record<string, number>;
   userReacted?: boolean;  // Track if current user reacted
-  comments?: number;
+  comments?: Comment[];         // Array of comments
+  commentCount?: number;        // Total comment count
   // media
   photoUri?: string;
   audioUri?: string;
@@ -47,9 +58,11 @@ export type SocialSlice = {
   fetchFeeds: () => Promise<void>;
   react: (id:string, emoji:string, which:Visibility) => Promise<void>;
   addPost: (p:Partial<Post>) => Promise<void>;
+  addComment: (postId: string, content: string, which: Visibility) => Promise<void>;
+  loadComments: (postId: string, which: Visibility) => Promise<void>;
 };
 
-export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
+export const createSocialSlice: StateCreator<SocialSlice> = (set, get) => ({
   circleFeed: [],
   followFeed: [],
   feedLoading: false,
@@ -58,6 +71,10 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
   fetchFeeds: async () => {
     set({ feedLoading: true, feedError: null });
     try {
+      // Get current user from auth slice
+      const currentUser = (get as any).user;
+      const currentUserId = currentUser?.id;
+      
       // Fetch both feeds in parallel
       const [circleResponse, followResponse] = await Promise.all([
         apiService.getFeed('circle'),
@@ -87,9 +104,12 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
           });
         }
         
+        // Check if this post is from the current user
+        const isCurrentUser = post.userId === currentUserId;
+        
         return {
           id: post.id,
-          user: post.user?.name || 'Anonymous',
+          user: isCurrentUser ? 'You' : (post.user?.name || 'Anonymous'),
           avatar: post.user?.avatar || '👤',
           type: post.type as PostType,
           visibility: post.visibility as Visibility,
@@ -125,7 +145,7 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
   react: async (id, emoji, which) => {
     // Toggle reaction - if user already reacted, remove it, otherwise add it
     const currentFeed = which === 'circle' ? 'circleFeed' : 'followFeed';
-    const currentPost = set.getState()[currentFeed].find(p => p.id === id);
+    const currentPost = get()[currentFeed].find(p => p.id === id);
     const hasReacted = currentPost?.userReacted || false;
     
     // Optimistically update UI first
@@ -136,10 +156,10 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
             ? { 
                 ...p, 
                 reactions: { 
-                  ...p.reactions, 
+                  ...(p.reactions || {}), 
                   [emoji]: hasReacted 
-                    ? Math.max(0, (p.reactions[emoji] || 0) - 1)
-                    : (p.reactions[emoji] || 0) + 1
+                    ? Math.max(0, ((p.reactions || {})[emoji] || 0) - 1)
+                    : ((p.reactions || {})[emoji] || 0) + 1
                 },
                 userReacted: !hasReacted
               } 
@@ -237,10 +257,10 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
       });
       
       if (response.success && response.data) {
-        // Replace optimistic post with real post
+        // Replace optimistic post with real post - always show "You" for current user's posts
         const realPost: Post = {
           id: response.data.id,
-          user: response.data.user?.name || 'You',
+          user: 'You',
           avatar: response.data.user?.avatar || '👤',
           type: response.data.type,
           visibility: response.data.visibility,
@@ -290,6 +310,82 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
       });
       set({ feedError: error.message || 'Failed to create post' });
       console.error('Failed to create post:', error);
+    }
+  },
+  
+  addComment: async (postId, content, which) => {
+    // Get current user from auth state
+    const currentUser = (get as any).user;
+    const currentFeed = which === 'circle' ? 'circleFeed' : 'followFeed';
+    
+    // Create optimistic comment
+    const optimisticComment: Comment = {
+      id: `temp-${Date.now()}`,
+      postId,
+      user: 'You',
+      avatar: currentUser?.avatar || '👤',
+      content,
+      time: 'now',
+      timestamp: new Date().toISOString(),
+    };
+    
+    // Optimistically update UI
+    set((s) => ({
+      [currentFeed]: s[currentFeed].map(p => 
+        p.id === postId 
+          ? {
+              ...p,
+              comments: [...(p.comments || []), optimisticComment],
+              commentCount: (p.commentCount || 0) + 1,
+            }
+          : p
+      )
+    }));
+    
+    try {
+      // TODO: Implement backend API call
+      // const response = await apiService.addComment(postId, content);
+      // if (response.success && response.data) {
+      //   // Replace optimistic comment with real comment
+      // }
+      
+      // For now, just keep the optimistic update
+      console.log('Comment added:', { postId, content });
+    } catch (error) {
+      // Revert optimistic update on error
+      set((s) => ({
+        [currentFeed]: s[currentFeed].map(p => 
+          p.id === postId 
+            ? {
+                ...p,
+                comments: (p.comments || []).filter(c => c.id !== optimisticComment.id),
+                commentCount: Math.max(0, (p.commentCount || 0) - 1),
+              }
+            : p
+        )
+      }));
+      console.error('Failed to add comment:', error);
+    }
+  },
+  
+  loadComments: async (postId, which) => {
+    try {
+      // TODO: Implement backend API call to load all comments
+      // const response = await apiService.getComments(postId);
+      // if (response.success && response.data) {
+      //   const currentFeed = which === 'circle' ? 'circleFeed' : 'followFeed';
+      //   set((s) => ({
+      //     [currentFeed]: s[currentFeed].map(p => 
+      //       p.id === postId 
+      //         ? { ...p, comments: response.data }
+      //         : p
+      //     )
+      //   }));
+      // }
+      
+      console.log('Loading comments for post:', postId);
+    } catch (error) {
+      console.error('Failed to load comments:', error);
     }
   },
 });

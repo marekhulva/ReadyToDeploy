@@ -46,10 +46,12 @@ export const SocialScreen = () => {
     actionTitle: ca.title,
     goal: ca.goalTitle,
     streak: ca.streak,
-    reactions: [],
+    reactions: {}, // Initialize as empty object for proper reaction tracking
     time: new Date(ca.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     timestamp: ca.completedAt, // Add timestamp for sorting
     goalColor: LuxuryTheme.colors.primary.gold,
+    visibility: 'circle' as const,
+    content: '',
   }));
   
   // Combine posts with public completed actions and sort by timestamp (newest first)
@@ -65,6 +67,7 @@ export const SocialScreen = () => {
   const posts: Post[] = feedView==='circle'?combinedCircle:follow;
   const openShare = useStore(s=>s.openShare);
   const react = useStore(s=>s.react);
+  const addComment = useStore(s=>s.addComment);
   
   // State for engagement triggers
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -241,8 +244,8 @@ export const SocialScreen = () => {
                         react(p.id, emoji, feedView);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       }}
-                      onComment={() => {
-                        console.log('Comment on post:', p.id);
+                      onComment={(content) => {
+                        addComment(p.id, content, feedView);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       }}
                       onProfileTap={() => {

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -18,13 +18,14 @@ import { LuxuryTheme } from '../../../design/luxuryTheme';
 import { useStore } from '../../../state/rootStore';
 import * as Haptics from 'expo-haptics';
 import { SimpleAudioPlayer } from './SimpleAudioPlayer';
+import { CommentSection } from './CommentSection';
 
 const { width } = Dimensions.get('window');
 
 interface FeedCardProps {
   post: Post;
   onReact: (emoji: string) => void;
-  onComment?: () => void;
+  onComment?: (content: string) => void;
   onProfileTap?: () => void;
 }
 
@@ -34,6 +35,7 @@ export const FeedCard: React.FC<FeedCardProps> = ({
   onComment,
   onProfileTap,
 }) => {
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const scale = useSharedValue(1);
   const glowIntensity = useSharedValue(0);
   const urgencyPulse = useSharedValue(0);
@@ -252,19 +254,42 @@ export const FeedCard: React.FC<FeedCardProps> = ({
           {/* Quick Actions */}
           <View style={styles.quickActions}>
             <Pressable 
-              style={styles.commentButton} 
+              style={[
+                styles.commentButton,
+                commentsExpanded && styles.commentButtonActive
+              ]} 
               onPress={() => {
-                onComment?.();
+                setCommentsExpanded(!commentsExpanded);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
             >
-              <MessageCircle size={14} color="rgba(255, 255, 255, 0.6)" />
-              {post.comments && post.comments > 0 && (
-                <Text style={styles.commentCount}>{post.comments}</Text>
+              <MessageCircle 
+                size={14} 
+                color={commentsExpanded ? '#FFD700' : 'rgba(255, 255, 255, 0.6)'} 
+              />
+              {post.commentCount !== undefined && post.commentCount > 0 && (
+                <Text style={[
+                  styles.commentCount,
+                  commentsExpanded && styles.commentCountActive
+                ]}>
+                  {post.commentCount}
+                </Text>
               )}
             </Pressable>
           </View>
         </View>
+        
+        {/* Comment Section */}
+        <CommentSection
+          postId={post.id}
+          comments={post.comments}
+          isExpanded={commentsExpanded}
+          onAddComment={(content) => {
+            onComment?.(content);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          onToggleExpand={() => setCommentsExpanded(!commentsExpanded)}
+        />
       </BlurView>
     </Animated.View>
   );
@@ -520,9 +545,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
+  commentButtonActive: {
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    borderColor: 'rgba(255,215,0,0.2)',
+  },
   commentCount: {
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.5)',
     fontWeight: '600',
+  },
+  commentCountActive: {
+    color: '#FFD700',
   },
 });

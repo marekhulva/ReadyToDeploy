@@ -18,7 +18,7 @@ const FLAGS: FeatureFlags = {
   ui: {
     social: {
       v1: true, // Enable new social visuals (can be toggled for testing)
-      v2: false, // V2 enhancements (disabled - set to true to enable)
+      v2: true, // V2 enhancements (enabled for better interaction feedback)
       // v2: __DEV__ ? true : false, // V2 enhancements (enabled in development only)
       fixedCarousel: true, // Enable fixed position carousel (set to false to use scrolling)
       luxuryTheme: false, // Enable luxury black/gold/silver theme (set to false to use default)

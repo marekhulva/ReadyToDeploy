@@ -150,17 +150,7 @@ export const ProfileEnhanced = () => {
   }));
 
   // Calculate real consistency based on today's completed actions
-  const actions = useStore(s => s.actions);
-  const todayCompleted = actions.filter(a => a.done).length;
-  const todayTotal = actions.length;
-  const calculatedConsistency = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
-  
-  const stats = {
-    inspirationGiven: 234,
-    accountabilityScore: 92,
-    consistencyRate: calculatedConsistency,
-    totalDays: 127,
-  };
+  // Removed placeholder stats - not meaningful without real data
 
   return (
     <View style={styles.container}>
@@ -223,103 +213,87 @@ export const ProfileEnhanced = () => {
                 })}
               </View>
 
-              {/* Signature Stats */}
-              <View style={styles.signatureStats}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.totalDays}</Text>
-                  <Text style={styles.statLabel}>Days</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.consistencyRate}%</Text>
-                  <Text style={styles.statLabel}>Consistency</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.accountabilityScore}</Text>
-                  <Text style={styles.statLabel}>Score</Text>
-                </View>
-              </View>
             </BlurView>
           </Animated.View>
 
-          {/* MY STORY - Pinned Posts Timeline */}
+          {/* MY GOALS - User's Personal Goals */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Bookmark size={20} color="#FFD700" />
-              <Text style={styles.sectionTitle}>My Story</Text>
+              <Target size={20} color="#FFD700" />
+              <Text style={styles.sectionTitle}>My Goals</Text>
             </View>
 
-            {/* Pinned Posts */}
-            <View style={styles.pinnedPostsContainer}>
-              {pinnedPosts.length > 0 ? (
-                pinnedPosts.map((post, index) => (
+            {/* Goals List */}
+            <View style={styles.goalsContainer}>
+              {goals.length > 0 ? (
+                goals.map((goal, index) => (
                   <Animated.View
-                    key={post.id}
+                    key={goal.id}
                     entering={FadeInDown.delay(index * 100).springify()}
-                    style={styles.pinnedPost}
+                    style={styles.goalCard}
                   >
-                    <BlurView intensity={20} tint="dark" style={styles.pinnedPostCard}>
+                    <BlurView intensity={20} tint="dark" style={styles.goalCardInner}>
                       <LinearGradient
                         colors={['rgba(255,215,0,0.08)', 'rgba(18,23,28,0.95)']}
                         style={StyleSheet.absoluteFillObject}
                       />
                       
-                      {/* Post Header */}
-                      <View style={styles.postHeader}>
-                        <View style={styles.postTypeIcon}>
-                          {post.type === 'checkin' ? <CheckCircle2 size={16} color="#FFD700" /> :
-                           post.type === 'photo' ? <Camera size={16} color="#FFD700" /> :
-                           post.type === 'audio' ? <Mic size={16} color="#FFD700" /> :
-                           <Target size={16} color="#FFD700" />}
-                        </View>
-                        <Text style={styles.postDate}>
-                          {new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </Text>
+                      {/* Goal Header */}
+                      <View style={styles.goalHeader}>
+                        <View style={[styles.goalColorIndicator, { backgroundColor: goal.color || '#FFD700' }]} />
+                        <Text style={styles.goalTitle}>{goal.title}</Text>
                       </View>
 
-                      {/* Post Content */}
-                      <Text style={styles.postContent} numberOfLines={3}>
-                        {post.content}
-                      </Text>
+                      {/* Goal Details */}
+                      <View style={styles.goalDetails}>
+                        {goal.metric && (
+                          <View style={styles.goalMetric}>
+                            <TrendingUp size={14} color="rgba(255,255,255,0.6)" />
+                            <Text style={styles.goalMetricText}>{goal.metric}</Text>
+                          </View>
+                        )}
+                        {goal.deadline && (
+                          <View style={styles.goalDeadline}>
+                            <Calendar size={14} color="rgba(255,255,255,0.6)" />
+                            <Text style={styles.goalDeadlineText}>
+                              {new Date(goal.deadline).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
 
-                      {/* Post Stats */}
-                      {post.reactions && Object.keys(post.reactions).length > 0 && (
-                        <View style={styles.postStats}>
-                          {Object.entries(post.reactions).map(([emoji, count]) => (
-                            count > 0 && <Text key={emoji} style={styles.reactionEmoji}>{emoji} {count}</Text>
-                          ))}
-                          <Text style={styles.reactionCount}>
-                            {Object.values(post.reactions).reduce((sum, count) => sum + count, 0)} reactions
-                          </Text>
+                      {/* Goal Progress */}
+                      {goal.consistency !== undefined && (
+                        <View style={styles.goalProgress}>
+                          <View style={styles.goalProgressBar}>
+                            <View 
+                              style={[
+                                styles.goalProgressFill,
+                                { 
+                                  width: `${goal.consistency}%`,
+                                  backgroundColor: goal.color || '#FFD700'
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={styles.goalProgressText}>{goal.consistency}% Complete</Text>
                         </View>
                       )}
                     </BlurView>
                   </Animated.View>
                 ))
               ) : (
-                <View style={styles.emptyPinnedPosts}>
-                  <Text style={styles.emptyText}>Pin your favorite posts to showcase your journey</Text>
+                <View style={styles.emptyGoals}>
+                  <Target size={40} color="rgba(255,255,255,0.3)" />
+                  <Text style={styles.emptyText}>No goals set yet</Text>
+                  <Text style={styles.emptySubtext}>Head to Daily to set your first goal</Text>
                 </View>
               )}
             </View>
-
-            {/* Recent Posts Preview */}
-            {recentPosts.length > 0 && (
-              <View style={styles.recentPostsPreview}>
-                <Text style={styles.recentPostsLabel}>Recent Activity</Text>
-                <View style={styles.recentPostsList}>
-                  {recentPosts.map((post, index) => (
-                    <View key={post.id} style={styles.recentPostItem}>
-                      <View style={styles.recentPostDot} />
-                      <Text style={styles.recentPostText} numberOfLines={1}>
-                        {post.content}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
           </View>
 
           {/* ACHIEVEMENT GRID - Instagram Style */}
@@ -444,29 +418,27 @@ export const ProfileEnhanced = () => {
               <View style={styles.impactGrid}>
                 <View style={styles.impactItem}>
                   <Heart size={24} color="#FFD700" />
-                  <Text style={styles.impactNumber}>{stats.inspirationGiven}</Text>
+                  <Text style={styles.impactNumber}>
+                    {userPosts.reduce((sum, post) => sum + Object.values(post.reactions || {}).reduce((a, b) => a + b, 0), 0)}
+                  </Text>
                   <Text style={styles.impactLabel}>Inspiration Given</Text>
                 </View>
                 
                 <View style={styles.impactItem}>
                   <MessageCircle size={24} color="#C0C0C0" />
-                  <Text style={styles.impactNumber}>89</Text>
+                  <Text style={styles.impactNumber}>
+                    {userPosts.reduce((sum, post) => sum + (post.comments || 0), 0)}
+                  </Text>
                   <Text style={styles.impactLabel}>Supportive Comments</Text>
                 </View>
                 
                 <View style={styles.impactItem}>
                   <Award size={24} color="#F7E7CE" />
-                  <Text style={styles.impactNumber}>12</Text>
+                  <Text style={styles.impactNumber}>
+                    {userPosts.filter(post => post.type === 'checkin' && post.streak && post.streak > 0).length}
+                  </Text>
                   <Text style={styles.impactLabel}>Milestones Celebrated</Text>
                 </View>
-              </View>
-
-              {/* Testimonial */}
-              <View style={styles.testimonialCard}>
-                <Text style={styles.testimonialText}>
-                  "Your consistency inspires me every day! 🌟"
-                </Text>
-                <Text style={styles.testimonialAuthor}>- Jordan</Text>
               </View>
             </BlurView>
           </View>
@@ -1033,6 +1005,7 @@ const styles = StyleSheet.create({
   },
   pinnedPost: {
     marginBottom: 12,
+    width: '100%',
   },
   pinnedPostCard: {
     borderRadius: 16,
@@ -1110,5 +1083,85 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
     flex: 1,
+  },
+  // Goals styles
+  goalsContainer: {
+    marginBottom: 16,
+  },
+  goalCard: {
+    marginBottom: 12,
+  },
+  goalCardInner: {
+    borderRadius: 16,
+    padding: 16,
+    overflow: 'hidden',
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  goalColorIndicator: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
+  },
+  goalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
+    flex: 1,
+  },
+  goalDetails: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 12,
+  },
+  goalMetric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  goalMetricText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  goalDeadline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  goalDeadlineText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  goalProgress: {
+    marginTop: 8,
+  },
+  goalProgressBar: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  goalProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  goalProgressText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  emptyGoals: {
+    padding: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 4,
   },
 });

@@ -114,25 +114,32 @@ export const PostCardEnhanced: React.FC<PostCardEnhancedProps> = ({ post, onReac
         {/* Reactions */}
         <Animated.View style={[styles.reactions, { transform: [{ scale }] }]}>
           <View style={styles.reactionButtons}>
-            {['👏', '💪', '🔥'].map((emoji) => (
-              <Pressable
-                key={emoji}
-                onPress={() => {
-                  pulse();
-                  onReact(emoji);
-                }}
-                style={({ pressed }) => [
-                  styles.reactionButton,
-                  pressed && styles.reactionButtonPressed
-                ]}
-              >
-                <Text style={styles.reactionText}>
-                  {emoji} {post.reactions?.[emoji] ?? 0}
-                </Text>
-              </Pressable>
-            ))}
+            <Pressable
+              onPress={() => {
+                pulse();
+                onReact('🔥');
+              }}
+              style={({ pressed }) => [
+                styles.reactionButton,
+                pressed && styles.reactionButtonPressed,
+                post.userReacted && styles.reactionButtonActive
+              ]}
+            >
+              <Text style={[
+                styles.reactionText,
+                post.userReacted && styles.reactionTextActive
+              ]}>
+                🔥 {post.reactions?.['🔥'] ?? 0}
+              </Text>
+            </Pressable>
           </View>
-          <Pressable style={styles.commentButton}>
+          <Pressable 
+            style={styles.commentButton}
+            onPress={() => {
+              // TODO: Implement comment functionality
+              console.log('Comment pressed for post:', post.id);
+            }}
+          >
             <Text style={styles.commentText}>💬 Comment</Text>
           </Pressable>
         </Animated.View>
@@ -302,9 +309,16 @@ const styles = StyleSheet.create({
   reactionButtonPressed: {
     backgroundColor: 'rgba(255,215,0,0.15)',
   },
+  reactionButtonActive: {
+    backgroundColor: 'rgba(255,215,0,0.2)',
+    borderColor: 'rgba(255,215,0,0.4)',
+  },
   reactionText: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: 14,
+  },
+  reactionTextActive: {
+    color: '#FFD700',
   },
   commentButton: {
     paddingHorizontal: 12,
