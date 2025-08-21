@@ -12,7 +12,9 @@ export type Post = {
   visibility: Visibility;
   content: string;              // status/insight or caption
   time: string;                 // "2h"
+  timestamp?: string;           // ISO date string for sorting
   reactions: Record<string, number>;
+  userReacted?: boolean;  // Track if current user reacted
   comments?: number;
   // media
   photoUri?: string;
@@ -93,8 +95,9 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
           visibility: post.visibility as Visibility,
           content: post.content,
           time: timeAgo(post.createdAt),
+          timestamp: post.createdAt, // Include timestamp for consistent sorting
           reactions,
-          photoUri: post.mediaUrl,
+          photoUri: post.type === 'photo' ? post.mediaUrl : undefined,
           audioUri: post.type === 'audio' ? post.mediaUrl : undefined,
           actionTitle: post.actionTitle,
           goal: post.goalTitle,
@@ -120,12 +123,26 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
   },
   
   react: async (id, emoji, which) => {
+    // Toggle reaction - if user already reacted, remove it, otherwise add it
+    const currentFeed = which === 'circle' ? 'circleFeed' : 'followFeed';
+    const currentPost = set.getState()[currentFeed].find(p => p.id === id);
+    const hasReacted = currentPost?.userReacted || false;
+    
     // Optimistically update UI first
     set((s) => ({
-      [which === 'circle' ? 'circleFeed' : 'followFeed']: 
-        (which === 'circle' ? s.circleFeed : s.followFeed).map(p => 
+      [currentFeed]: 
+        s[currentFeed].map(p => 
           p.id === id 
-            ? { ...p, reactions: { ...p.reactions, [emoji]: (p.reactions[emoji] || 0) + 1 } } 
+            ? { 
+                ...p, 
+                reactions: { 
+                  ...p.reactions, 
+                  [emoji]: hasReacted 
+                    ? Math.max(0, (p.reactions[emoji] || 0) - 1)
+                    : (p.reactions[emoji] || 0) + 1
+                },
+                userReacted: !hasReacted
+              } 
             : p
         )
     }));
@@ -135,10 +152,19 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
       if (!response.success) {
         // Revert optimistic update on failure
         set((s) => ({
-          [which === 'circle' ? 'circleFeed' : 'followFeed']: 
-            (which === 'circle' ? s.circleFeed : s.followFeed).map(p => 
+          [currentFeed]: 
+            s[currentFeed].map(p => 
               p.id === id 
-                ? { ...p, reactions: { ...p.reactions, [emoji]: Math.max(0, (p.reactions[emoji] || 1) - 1) } } 
+                ? { 
+                    ...p, 
+                    reactions: { 
+                      ...p.reactions, 
+                      [emoji]: hasReacted 
+                        ? (p.reactions[emoji] || 0) + 1  // Revert removal
+                        : Math.max(0, (p.reactions[emoji] || 0) - 1)  // Revert addition
+                    },
+                    userReacted: hasReacted
+                  } 
                 : p
             )
         }));
@@ -147,10 +173,19 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
     } catch (error) {
       // Revert optimistic update on error
       set((s) => ({
-        [which === 'circle' ? 'circleFeed' : 'followFeed']: 
-          (which === 'circle' ? s.circleFeed : s.followFeed).map(p => 
+        [currentFeed]: 
+          s[currentFeed].map(p => 
             p.id === id 
-              ? { ...p, reactions: { ...p.reactions, [emoji]: Math.max(0, (p.reactions[emoji] || 1) - 1) } } 
+              ? { 
+                  ...p, 
+                  reactions: { 
+                    ...p.reactions, 
+                    [emoji]: hasReacted 
+                      ? (p.reactions[emoji] || 0) + 1  // Revert removal
+                      : Math.max(0, (p.reactions[emoji] || 0) - 1)  // Revert addition
+                  },
+                  userReacted: hasReacted
+                } 
               : p
           )
       }));
@@ -162,6 +197,7 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
     set({ feedError: null });
     
     // Create optimistic post
+    const now = new Date();
     const optimisticPost: Post = {
       id: `temp-${Date.now()}`,
       user: 'You',
@@ -170,6 +206,7 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
       visibility: postData.visibility || 'circle',
       content: postData.content || '',
       time: 'now',
+      timestamp: now.toISOString(), // Add timestamp for sorting
       reactions: {},
       photoUri: postData.photoUri,
       audioUri: postData.audioUri,
@@ -209,8 +246,9 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set) => ({
           visibility: response.data.visibility,
           content: response.data.content,
           time: 'now',
+          timestamp: response.data.createdAt || new Date().toISOString(), // Include timestamp
           reactions: {},
-          photoUri: response.data.mediaUrl,
+          photoUri: response.data.type === 'photo' ? response.data.mediaUrl : undefined,
           audioUri: response.data.type === 'audio' ? response.data.mediaUrl : undefined,
           actionTitle: response.data.actionTitle,
           goal: response.data.goalTitle,

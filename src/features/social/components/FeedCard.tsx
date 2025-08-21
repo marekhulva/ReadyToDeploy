@@ -17,6 +17,7 @@ import { ReactionChipAnimated } from '../../../ui/atoms/ReactionChipAnimated';
 import { LuxuryTheme } from '../../../design/luxuryTheme';
 import { useStore } from '../../../state/rootStore';
 import * as Haptics from 'expo-haptics';
+import { SimpleAudioPlayer } from './SimpleAudioPlayer';
 
 const { width } = Dimensions.get('window');
 
@@ -228,29 +229,24 @@ export const FeedCard: React.FC<FeedCardProps> = ({
             <Image source={{ uri: post.photoUri }} style={styles.photo} />
           )}
           
-          {/* Audio indicator */}
+          {/* Audio player */}
           {post.audioUri && (
-            <View style={styles.audioIndicator}>
-              <Text style={styles.audioText}>🎙️ Voice Note</Text>
-            </View>
+            <SimpleAudioPlayer uri={post.audioUri} />
           )}
         </View>
         
         {/* Footer with reactions - Enhanced */}
         <View style={styles.footer}>
           <View style={styles.reactionsRow}>
-            {['🔥', '💪', '👏', '❤️'].map(emoji => (
-              <ReactionChipAnimated
-                key={emoji}
-                emoji={emoji}
-                count={post.reactions?.[emoji]}
-                active={!!post.reactions?.[emoji]}
-                onPress={() => {
-                  onReact(emoji);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              />
-            ))}
+            <ReactionChipAnimated
+              emoji="🔥"
+              count={post.reactions?.['🔥']}
+              active={post.userReacted || false}
+              onPress={() => {
+                onReact('🔥');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            />
           </View>
           
           {/* Quick Actions */}

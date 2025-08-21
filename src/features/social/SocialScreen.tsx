@@ -48,12 +48,18 @@ export const SocialScreen = () => {
     streak: ca.streak,
     reactions: [],
     time: new Date(ca.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    timestamp: ca.completedAt, // Add timestamp for sorting
     goalColor: LuxuryTheme.colors.primary.gold,
   }));
   
-  // Combine posts with public completed actions
+  // Combine posts with public completed actions and sort by timestamp (newest first)
   const combinedCircle = [...actionPosts, ...circle]
-    .sort(() => Math.random() - 0.5) // Mix them up for variety
+    .sort((a, b) => {
+      // Get timestamps - handle different formats
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA; // Newest first
+    })
     .slice(0, 20); // Limit to prevent too many items
   
   const posts: Post[] = feedView==='circle'?combinedCircle:follow;
@@ -166,8 +172,13 @@ export const SocialScreen = () => {
         >
           {/* Post Prompt Card - Enhanced with urgency */}
           <PostPromptCard
-            onOpenComposer={(type) => {
-              openShare({ type, visibility: feedView });
+            onOpenComposer={(type, prompt) => {
+              openShare({ 
+                type, 
+                visibility: feedView,
+                promptSeed: prompt, // Pass the prompt as initial text
+                text: '' // Initialize with empty text
+              });
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             }}
           />

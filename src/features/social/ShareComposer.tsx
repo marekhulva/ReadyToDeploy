@@ -138,7 +138,7 @@ export const ShareComposer: React.FC = () => {
 
           {/* Text */}
           <TextInput
-            defaultValue=""
+            value={text}
             onChangeText={(newText) => {
               console.log('Text changed to:', newText);
               setText(newText);

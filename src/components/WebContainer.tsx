@@ -28,6 +28,17 @@ export const WebContainer: React.FC<{ children: React.ReactNode }> = ({ children
           background: #000 !important;
           position: relative !important;
         }
+        
+        /* Fix modal positioning to stay within iPhone frame */
+        [data-modal-container] {
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
       `;
       document.head.appendChild(style);
       

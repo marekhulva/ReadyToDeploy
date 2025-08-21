@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Modal } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -144,16 +144,22 @@ export function AppWithAuth() {
         </Stack.Navigator>
       </NavigationContainer>
       
-      {/* Onboarding Modal */}
-      <Modal
-        visible={isOnboardingOpen}
-        animationType="slide"
-        presentationStyle="fullScreen"
-      >
-        <ErrorBoundary>
-          <OnboardingFlow onComplete={closeOnboarding} />
-        </ErrorBoundary>
-      </Modal>
+      {/* Onboarding Overlay - using absolute positioning instead of Modal */}
+      {isOnboardingOpen && (
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#000',
+          zIndex: 9999,
+        }}>
+          <ErrorBoundary>
+            <OnboardingFlow onComplete={closeOnboarding} />
+          </ErrorBoundary>
+        </View>
+      )}
     </ErrorBoundary>
   );
 }

@@ -35,13 +35,15 @@ import {
   Square,
   Trash2,
   Check,
-  Settings
+  Settings,
+  Play
 } from 'lucide-react-native';
 import { LuxuryTheme } from '../../../design/luxuryTheme';
 import { LuxuryColors } from '../../../design/luxuryColors';
 import { useStore } from '../../../state/rootStore';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import { isFeatureEnabled } from '../../../utils/featureFlags';
 import { FixedPromptCarousel } from './FixedPromptCarousel';
 
@@ -356,7 +358,8 @@ const AudioRecorderRow: React.FC<{
   onAttach: () => void;
   hasRecording: boolean;
   selectedPrompt?: string;
-}> = ({ isRecording, duration, onRecord, onStop, onDelete, onAttach, hasRecording, selectedPrompt }) => {
+  recordingUri?: string | null;
+}> = ({ isRecording, duration, onRecord, onStop, onDelete, onAttach, hasRecording, selectedPrompt, recordingUri }) => {
   const pulseAnim = useSharedValue(1);
   
   useEffect(() => {
@@ -442,9 +445,21 @@ const AudioRecorderRow: React.FC<{
             <Pressable style={audioStyles.iconButton} onPress={onDelete}>
               <Trash2 size={18} color="rgba(255,255,255,0.6)" />
             </Pressable>
-            <Pressable style={audioStyles.iconButton} onPress={onAttach}>
-              <Check size={18} color={LuxuryTheme.colors.primary.gold} />
-            </Pressable>
+            {recordingUri && (
+              <Pressable 
+                style={audioStyles.iconButton} 
+                onPress={async () => {
+                  try {
+                    const { sound } = await Audio.Sound.createAsync({ uri: recordingUri });
+                    await sound.playAsync();
+                  } catch (err) {
+                    console.error('Playback failed:', err);
+                  }
+                }}
+              >
+                <Play size={18} color={LuxuryTheme.colors.primary.gold} />
+              </Pressable>
+            )}
           </>
         )}
       </View>
@@ -635,6 +650,7 @@ export const PostPromptCard: React.FC<PostPromptCardProps> = ({ onOpenComposer }
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [hasRecording, setHasRecording] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
   
   // Check if we should use the fixed carousel
   const useFixedCarousel = isFeatureEnabled('ui.social.fixedCarousel');
@@ -700,20 +716,29 @@ export const PostPromptCard: React.FC<PostPromptCardProps> = ({ onOpenComposer }
     
     setIsRecording(false);
     await recording.stopAndUnloadAsync();
+    const uri = recording.getURI();
+    setRecordingUri(uri);
     setHasRecording(true);
     setRecording(null);
   };
 
   const handleSend = () => {
     if (hasContent) {
-      // Pass selected prompt with the composer
-      if (mode === 'text') {
-        onOpenComposer('status', selectedPrompt);
-      } else if (mode === 'photo') {
-        onOpenComposer('photo', selectedPrompt);
-      } else {
-        onOpenComposer('audio', selectedPrompt);
-      }
+      // Instead of opening composer, post directly from here
+      const post = {
+        type: mode === 'photo' ? 'photo' : mode === 'audio' ? 'audio' : 'status',
+        visibility: 'circle', // Default to circle
+        content: mode === 'text' ? textValue : photoCaption || '',
+        mediaUrl: mode === 'photo' ? photoUri : mode === 'audio' ? recordingUri : undefined,
+        photoUri: mode === 'photo' ? photoUri : undefined,
+        audioUri: mode === 'audio' ? recordingUri : undefined,
+      };
+      
+      console.log('Posting directly from PostPromptCard:', post);
+      
+      // Call the API directly to create the post
+      const { addPost } = useStore.getState();
+      addPost(post);
       
       // Reset state
       setTextValue('');
@@ -721,7 +746,13 @@ export const PostPromptCard: React.FC<PostPromptCardProps> = ({ onOpenComposer }
       setPhotoCaption('');
       setHasRecording(false);
       setRecordingDuration(0);
+      setRecordingUri(null);
       setSelectedPrompt('');
+      
+      // Show success feedback
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     }
   };
 
@@ -812,10 +843,12 @@ export const PostPromptCard: React.FC<PostPromptCardProps> = ({ onOpenComposer }
                 onDelete={() => {
                   setHasRecording(false);
                   setRecordingDuration(0);
+                  setRecordingUri(null);
                 }}
                 onAttach={() => {}}
                 hasRecording={hasRecording}
                 selectedPrompt={selectedPrompt}
+                recordingUri={recordingUri}
               />
             )}
           </View>
