@@ -427,7 +427,7 @@ export const ProfileEnhanced = () => {
                 <View style={styles.impactItem}>
                   <MessageCircle size={24} color="#C0C0C0" />
                   <Text style={styles.impactNumber}>
-                    {userPosts.reduce((sum, post) => sum + (post.comments || 0), 0)}
+                    {userPosts.reduce((sum, post) => sum + (post.commentCount || (post.comments?.length || 0)), 0)}
                   </Text>
                   <Text style={styles.impactLabel}>Supportive Comments</Text>
                 </View>
