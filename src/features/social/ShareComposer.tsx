@@ -64,7 +64,29 @@ export const ShareComposer: React.FC = () => {
     try {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI() || undefined;
-      setAudioUri(uri);
+      
+      // Convert to base64 for web platform to persist across refreshes
+      if (Platform.OS === 'web' && uri) {
+        try {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result as string;
+            console.log('ShareComposer - Audio converted to base64, length:', base64.length);
+            setAudioUri(base64);
+            setBusy(false);
+          };
+          reader.readAsDataURL(blob);
+          setRecording(null);
+          return; // Exit early, setBusy(false) will be called in onloadend
+        } catch (error) {
+          console.error('Error converting audio to base64:', error);
+          setAudioUri(uri); // Fallback to blob URL
+        }
+      } else {
+        setAudioUri(uri);
+      }
     } catch(e) { console.warn(e); }
     setRecording(null);
     setBusy(false);

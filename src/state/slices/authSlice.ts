@@ -22,6 +22,7 @@ export type AuthSlice = {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
+  updateAvatar: (avatarUri: string) => Promise<boolean>;
 };
 
 export const createAuthSlice: StateCreator<AuthSlice> = (set, get) => ({
@@ -136,5 +137,30 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set, get) => ({
     }
   },
 
-  clearError: () => set({ error: null })
+  clearError: () => set({ error: null }),
+  
+  updateAvatar: async (avatarUri: string) => {
+    try {
+      // For now, store locally in state and AsyncStorage
+      const currentUser = get().user;
+      if (!currentUser) return false;
+      
+      const updatedUser = { ...currentUser, avatar: avatarUri };
+      
+      // Update state
+      set({ user: updatedUser });
+      
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      // TODO: Upload to backend when API is ready
+      // const response = await apiService.updateAvatar(avatarUri);
+      // if (response.success) { ... }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to update avatar:', error);
+      return false;
+    }
+  }
 });

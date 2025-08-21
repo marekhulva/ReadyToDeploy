@@ -14,6 +14,11 @@ export const SimpleAudioPlayer: React.FC<SimpleAudioPlayerProps> = ({ uri }) => 
   const [sound, setSound] = useState<Audio.Sound | null>(null);
 
   const togglePlayback = async () => {
+    console.log('SimpleAudioPlayer - Toggle playback called');
+    console.log('URI received:', uri);
+    console.log('URI type:', typeof uri);
+    console.log('Is playing:', isPlaying);
+    
     try {
       if (isPlaying && sound) {
         // Stop playback

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Dimensions, Image } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Dimensions, Image, Alert, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, {
@@ -24,6 +24,8 @@ import { useStore } from '../../state/rootStore';
 import { PostCardEnhanced } from '../social/components/PostCardEnhanced';
 import { ResetOnboardingButton } from '../onboarding/ResetButton';
 import { LuxuryTheme } from '../../design/luxuryTheme';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -46,7 +48,47 @@ export const ProfileEnhanced = () => {
   const followFeed = useStore(s => s.followFeed);
   const completedActions = useStore(s => s.completedActions);
   const logout = useStore(s => s.logout);
+  const updateAvatar = useStore(s => s.updateAvatar);
   const [selectedAction, setSelectedAction] = useState<GridAction | null>(null);
+  
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please grant camera roll permissions to change your profile picture.');
+          return;
+        }
+      }
+      
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        const base64 = result.assets[0].base64;
+        
+        // For web, use the URI directly; for mobile, use base64
+        const avatarData = Platform.OS === 'web' ? imageUri : `data:image/jpeg;base64,${base64}`;
+        
+        // Update avatar
+        const success = await updateAvatar(avatarData);
+        if (success) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to update profile picture');
+    }
+  };
   
   // Get user's own posts from both feeds
   const allPosts = [...circleFeed, ...followFeed];
@@ -172,17 +214,27 @@ export const ProfileEnhanced = () => {
               
               {/* Avatar with luxury ring */}
               <View style={styles.avatarSection}>
-                <LinearGradient
-                  colors={[LuxuryTheme.colors.primary.gold, LuxuryTheme.colors.primary.silver, LuxuryTheme.colors.primary.champagne]}
-                  style={styles.avatarRing}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {user?.name?.charAt(0) || 'U'}
-                  </Text>
-                </View>
+                <Pressable onPress={pickImage}>
+                  <LinearGradient
+                    colors={[LuxuryTheme.colors.primary.gold, LuxuryTheme.colors.primary.silver, LuxuryTheme.colors.primary.champagne]}
+                    style={styles.avatarRing}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  />
+                  <View style={styles.avatar}>
+                    {user?.avatar && user.avatar.startsWith('data:') || user?.avatar?.startsWith('http') ? (
+                      <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+                    ) : (
+                      <Text style={styles.avatarText}>
+                        {user?.name?.charAt(0) || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  {/* Camera icon overlay */}
+                  <View style={styles.cameraButton}>
+                    <Camera size={16} color="#FFFFFF" />
+                  </View>
+                </Pressable>
                 {/* Streak flame badge */}
                 <View style={styles.streakBadge}>
                   <Flame size={16} color="#FFD700" />
@@ -550,6 +602,22 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '900',
     color: '#FFD700',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 43,
+    resizeMode: 'cover',
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.3)',
   },
   streakBadge: {
     position: 'absolute',

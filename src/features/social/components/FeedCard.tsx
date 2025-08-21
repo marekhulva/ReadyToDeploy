@@ -160,15 +160,29 @@ export const FeedCard: React.FC<FeedCardProps> = ({
                   end={{ x: 1, y: 1 }}
                 />
               )}
-              {post.avatar ? (
-                <Text style={styles.avatarEmoji}>{post.avatar}</Text>
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarInitial}>
-                    {post.user.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
+              {(() => {
+                // Debug: Check what avatar data we have
+                console.log(`FeedCard - Post by ${post.user}, avatar:`, post.avatar?.substring(0, 50));
+                const isImageAvatar = post.avatar && (
+                  post.avatar.startsWith('data:') || 
+                  post.avatar.startsWith('http') || 
+                  post.avatar.startsWith('blob:')
+                );
+                
+                if (isImageAvatar) {
+                  return <Image source={{ uri: post.avatar }} style={styles.avatarPhoto} />;
+                } else if (post.avatar && post.avatar !== '👤') {
+                  return <Text style={styles.avatarEmoji}>{post.avatar}</Text>;
+                } else {
+                  return (
+                    <View style={styles.avatarPlaceholder}>
+                      <Text style={styles.avatarInitial}>
+                        {post.user.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  );
+                }
+              })()}
             </View>
             
             {/* User Info with Badges */}
@@ -233,7 +247,9 @@ export const FeedCard: React.FC<FeedCardProps> = ({
           
           {/* Audio player */}
           {post.audioUri && (
-            <SimpleAudioPlayer uri={post.audioUri} />
+            <View style={{ zIndex: 10, position: 'relative' }}>
+              <SimpleAudioPlayer uri={post.audioUri} />
+            </View>
           )}
         </View>
         
@@ -378,6 +394,12 @@ const styles = StyleSheet.create({
   },
   avatarEmoji: {
     fontSize: 24,
+  },
+  avatarPhoto: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    resizeMode: 'cover',
   },
   avatarPlaceholder: {
     width: '100%',

@@ -717,8 +717,30 @@ export const PostPromptCard: React.FC<PostPromptCardProps> = ({ onOpenComposer }
     setIsRecording(false);
     await recording.stopAndUnloadAsync();
     const uri = recording.getURI();
-    setRecordingUri(uri);
-    setHasRecording(true);
+    
+    // Convert to base64 for web platform to persist across refreshes
+    if (Platform.OS === 'web' && uri) {
+      try {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          console.log('Audio converted to base64, length:', base64.length);
+          setRecordingUri(base64);
+          setHasRecording(true);
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error converting audio to base64:', error);
+        setRecordingUri(uri); // Fallback to blob URL
+        setHasRecording(true);
+      }
+    } else {
+      setRecordingUri(uri);
+      setHasRecording(true);
+    }
+    
     setRecording(null);
   };
 

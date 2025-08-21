@@ -36,12 +36,19 @@ export const SocialScreen = () => {
   const follow = useStore(s=>s.followFeed);
   const completedActions = useStore(s=>s.completedActions);
   const profile = useStore(s=>s.profile);
+  const user = useStore(s=>s.user); // Get user for avatar
+  
+  // Debug: Log user avatar
+  React.useEffect(() => {
+    console.log('SocialScreen - Current user avatar:', user?.avatar);
+  }, [user?.avatar]);
   
   // Add public completed actions to the feed
   const publicActions = completedActions.filter(ca => !ca.isPrivate);
   const actionPosts: Post[] = publicActions.map(ca => ({
     id: `action-${ca.id}`,
-    user: profile?.name || 'You',
+    user: 'You',
+    avatar: user?.avatar || '👤', // Include user's avatar
     type: 'checkin',
     actionTitle: ca.title,
     goal: ca.goalTitle,
@@ -55,7 +62,15 @@ export const SocialScreen = () => {
   }));
   
   // Combine posts with public completed actions and sort by timestamp (newest first)
+  // Also ensure current user's posts use their current avatar
   const combinedCircle = [...actionPosts, ...circle]
+    .map(post => {
+      // If this is the current user's post, ensure it uses their current avatar
+      if (post.user === 'You' || post.user === user?.name || post.user === user?.email) {
+        return { ...post, avatar: user?.avatar || post.avatar || '👤' };
+      }
+      return post;
+    })
     .sort((a, b) => {
       // Get timestamps - handle different formats
       const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;

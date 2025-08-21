@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { apiService } from '../../services/api.service';
+import { AuthSlice } from './authSlice';
 
 export type PostType = 'checkin'|'status'|'photo'|'audio'|'goal';
 export type Visibility = 'circle'|'follow';
@@ -62,7 +63,12 @@ export type SocialSlice = {
   loadComments: (postId: string, which: Visibility) => Promise<void>;
 };
 
-export const createSocialSlice: StateCreator<SocialSlice> = (set, get) => ({
+export const createSocialSlice: StateCreator<
+  SocialSlice & AuthSlice,
+  [],
+  [],
+  SocialSlice
+> = (set, get) => ({
   circleFeed: [],
   followFeed: [],
   feedLoading: false,
@@ -72,7 +78,7 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set, get) => ({
     set({ feedLoading: true, feedError: null });
     try {
       // Get current user from auth slice
-      const currentUser = (get as any).user;
+      const currentUser = get().user;
       const currentUserId = currentUser?.id;
       
       // Fetch both feeds in parallel
@@ -107,10 +113,20 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set, get) => ({
         // Check if this post is from the current user
         const isCurrentUser = post.userId === currentUserId;
         
+        // Debug audio posts
+        if (post.type === 'audio') {
+          console.log('Audio post from backend:', {
+            id: post.id,
+            type: post.type,
+            mediaUrl: post.mediaUrl,
+            content: post.content
+          });
+        }
+        
         return {
           id: post.id,
           user: isCurrentUser ? 'You' : (post.user?.name || 'Anonymous'),
-          avatar: post.user?.avatar || '👤',
+          avatar: isCurrentUser ? (currentUser?.avatar || '👤') : (post.user?.avatar || '👤'),
           type: post.type as PostType,
           visibility: post.visibility as Visibility,
           content: post.content,
@@ -216,12 +232,15 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set, get) => ({
   addPost: async (postData) => {
     set({ feedError: null });
     
+    // Get current user from auth state
+    const currentUser = get().user;
+    
     // Create optimistic post
     const now = new Date();
     const optimisticPost: Post = {
       id: `temp-${Date.now()}`,
       user: 'You',
-      avatar: '👤',
+      avatar: currentUser?.avatar || '👤',
       type: postData.type || 'status',
       visibility: postData.visibility || 'circle',
       content: postData.content || '',
@@ -261,7 +280,7 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set, get) => ({
         const realPost: Post = {
           id: response.data.id,
           user: 'You',
-          avatar: response.data.user?.avatar || '👤',
+          avatar: currentUser?.avatar || response.data.user?.avatar || '👤',
           type: response.data.type,
           visibility: response.data.visibility,
           content: response.data.content,
@@ -315,7 +334,7 @@ export const createSocialSlice: StateCreator<SocialSlice> = (set, get) => ({
   
   addComment: async (postId, content, which) => {
     // Get current user from auth state
-    const currentUser = (get as any).user;
+    const currentUser = get().user;
     const currentFeed = which === 'circle' ? 'circleFeed' : 'followFeed';
     
     // Create optimistic comment
