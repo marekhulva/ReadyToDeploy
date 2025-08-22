@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { apiService } from '../../services/api.service';
+import { backendService } from '../../services/backend.service';
 
 export type ActionItem = { 
   id: string; 
@@ -49,7 +49,7 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
   fetchDailyActions: async () => {
     set({ actionsLoading: true, actionsError: null });
     try {
-      const response = await apiService.getDailyActions();
+      const response = await backendService.getDailyActions();
       if (response.success) {
         const actions = (response.data || []).map((a: any) => ({
           id: a.id,
@@ -73,7 +73,7 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
   
   toggleAction: async (id) => {
     try {
-      const response = await apiService.completeAction(id);
+      const response = await backendService.completeAction(id);
       if (response.success) {
         set((s) => ({
           actions: s.actions.map(a => 
@@ -90,7 +90,7 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
   
   addAction: async (actionData) => {
     try {
-      const response = await apiService.createAction({
+      const response = await backendService.createAction({
         title: actionData.title || '',
         time: actionData.time,
         goalId: actionData.goalId,  // Pass goalId from action data
@@ -119,7 +119,7 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
   updateAction: async (id, updates) => {
     set({ actionsLoading: true, actionsError: null });
     try {
-      const response = await apiService.updateAction(id, {
+      const response = await backendService.updateAction(id, {
         title: updates.title,
         time: updates.time,
         goalId: updates.goalId  // Include goalId in updates
@@ -148,7 +148,7 @@ export const createDailySlice: StateCreator<DailySlice> = (set, get) => ({
   deleteAction: async (id) => {
     set({ actionsLoading: true, actionsError: null });
     try {
-      const response = await apiService.deleteAction(id);
+      const response = await backendService.deleteAction(id);
       if (response.success) {
         set((state) => ({
           actions: state.actions.filter(a => a.id !== id),

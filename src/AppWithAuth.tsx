@@ -48,9 +48,9 @@ function MainTabs() {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,
-          height: 70,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 85, // Increased for better spacing
+          paddingBottom: 10, // More padding
+          paddingTop: 10,
         },
         tabBarActiveTintColor: '#FFFFFF',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.5)',

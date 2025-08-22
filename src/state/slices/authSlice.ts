@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { apiService } from '../../services/api.service';
+import { backendService } from '../../services/backend.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type User = {
@@ -35,14 +35,18 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set, get) => ({
   login: async (email: string, password: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiService.login(email, password);
+      const response = await backendService.signIn(email, password);
       
       if (response.success && response.data) {
         const { user, token } = response.data;
         
-        // Save to storage
-        await AsyncStorage.setItem('token', token);
-        await AsyncStorage.setItem('user', JSON.stringify(user));
+        // Save to storage (only if we have valid values)
+        if (token) {
+          await AsyncStorage.setItem('token', token);
+        }
+        if (user) {
+          await AsyncStorage.setItem('user', JSON.stringify(user));
+        }
         
         set({
           isAuthenticated: true,
@@ -72,14 +76,18 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set, get) => ({
   register: async (email: string, password: string, name: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiService.register(email, password, name);
+      const response = await backendService.signUp(email, password, name);
       
       if (response.success && response.data) {
         const { user, token } = response.data;
         
-        // Save to storage
-        await AsyncStorage.setItem('token', token);
-        await AsyncStorage.setItem('user', JSON.stringify(user));
+        // Save to storage (only if we have valid values)
+        if (token) {
+          await AsyncStorage.setItem('token', token);
+        }
+        if (user) {
+          await AsyncStorage.setItem('user', JSON.stringify(user));
+        }
         
         set({
           isAuthenticated: true,
@@ -107,7 +115,7 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set, get) => ({
   },
 
   logout: async () => {
-    await apiService.logout();
+    await backendService.signOut();
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('user');
     
@@ -154,7 +162,7 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set, get) => ({
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       
       // TODO: Upload to backend when API is ready
-      // const response = await apiService.updateAvatar(avatarUri);
+      // const response = await backendService.updateAvatar(avatarUri);
       // if (response.success) { ... }
       
       return true;

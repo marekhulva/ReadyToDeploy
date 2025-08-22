@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Dimensions, Image, Alert, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, {
@@ -42,6 +43,7 @@ interface GridAction {
 }
 
 export const ProfileEnhanced = () => {
+  const insets = useSafeAreaInsets();
   const user = useStore(s => s.user);
   const goals = useStore(s => s.goals);
   const circleFeed = useStore(s => s.circleFeed);
@@ -195,13 +197,19 @@ export const ProfileEnhanced = () => {
   // Removed placeholder stats - not meaningful without real data
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <LuxuryGradientBackground variant="mixed">
         <GoldParticles variant="mixed" particleCount={15} />
         
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { 
+              paddingTop: 20,
+              paddingBottom: insets.bottom + 100 
+            }
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* HERO SECTION - Personal Brand */}
@@ -549,7 +557,7 @@ export const ProfileEnhanced = () => {
       >
         <Text style={styles.logoutText}>Logout</Text>
       </Pressable>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -561,8 +569,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    // paddingTop and paddingBottom are now dynamic
   },
 
   // Hero Section

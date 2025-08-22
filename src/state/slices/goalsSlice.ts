@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { apiService } from '../../services/api.service';
+import { backendService } from '../../services/backend.service';
 
 export type Milestone = {
   id: string;
@@ -44,7 +44,7 @@ export const createGoalsSlice: StateCreator<GoalsSlice> = (set, get) => ({
   fetchGoals: async () => {
     set({ goalsLoading: true, goalsError: null });
     try {
-      const response = await apiService.getGoals();
+      const response = await backendService.getGoals();
       if (response.success) {
         set({ goals: response.data || [], goalsLoading: false });
       } else {
@@ -57,7 +57,7 @@ export const createGoalsSlice: StateCreator<GoalsSlice> = (set, get) => ({
   
   addGoal: async (goalData) => {
     try {
-      const response = await apiService.createGoal({
+      const response = await backendService.createGoal({
         title: goalData.title || '',
         metric: goalData.metric || '',
         deadline: goalData.deadline || new Date().toISOString(),
@@ -77,7 +77,7 @@ export const createGoalsSlice: StateCreator<GoalsSlice> = (set, get) => ({
   updateGoal: async (id, updates) => {
     set({ goalsLoading: true, goalsError: null });
     try {
-      const response = await apiService.updateGoal(id, updates);
+      const response = await backendService.updateGoal(id, updates);
       if (response.success && response.data) {
         set((state) => ({
           goals: state.goals.map(g => 
@@ -96,7 +96,7 @@ export const createGoalsSlice: StateCreator<GoalsSlice> = (set, get) => ({
   deleteGoal: async (id) => {
     set({ goalsLoading: true, goalsError: null });
     try {
-      const response = await apiService.deleteGoal(id);
+      const response = await backendService.deleteGoal(id);
       if (response.success) {
         set((state) => ({
           goals: state.goals.filter(g => g.id !== id),

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Dimensions, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, {
@@ -32,6 +33,7 @@ const { width } = Dimensions.get('window');
 const AnimatedSvgCircle = Animated.createAnimatedComponent(SvgCircle);
 
 export const ProgressMVPEnhanced = () => {
+  const insets = useSafeAreaInsets();
   const goals = useStore(s => s.goals);
   const goalsLoading = useStore(s => s.goalsLoading);
   const goalsError = useStore(s => s.goalsError);
@@ -332,7 +334,7 @@ export const ProgressMVPEnhanced = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Pure black background with subtle vignette */}
       <LinearGradient
         colors={['#000000', '#000000', '#0A0A0A']}
@@ -342,7 +344,13 @@ export const ProgressMVPEnhanced = () => {
       
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { 
+            paddingTop: 20,
+            paddingBottom: insets.bottom + 100 
+          }
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Enhanced Header Widget with Dual Ring */}
@@ -789,7 +797,7 @@ export const ProgressMVPEnhanced = () => {
           </View>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -802,8 +810,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    // paddingTop and paddingBottom are now dynamic
   },
   
   // Enhanced Header Widget

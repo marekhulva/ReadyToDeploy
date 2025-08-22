@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Dimensions, RefreshControl } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, {
@@ -30,6 +31,7 @@ import * as Haptics from 'expo-haptics';
 const { width, height } = Dimensions.get('window');
 
 export const SocialScreen = () => {
+  const insets = useSafeAreaInsets();
   const feedView = useStore(s=>s.feedView);
   const setFeedView = useStore(s=>s.setFeedView);
   const circle = useStore(s=>s.circleFeed);
@@ -156,12 +158,12 @@ export const SocialScreen = () => {
   }));
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Pure Black Background */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000000' }]} />
       
       {/* Pinned Liquid Glass Tabs at the top */}
-      <View style={styles.pinnedHeader}>
+      <View style={[styles.pinnedHeader, { top: insets.top }]}>
         <LiquidGlassTabs
           activeTab={feedView}
           onTabChange={(tab) => {
@@ -173,7 +175,13 @@ export const SocialScreen = () => {
         
         <ScrollView 
           style={styles.scrollView} 
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { 
+              paddingTop: insets.top + 80, // Safe area + header height
+              paddingBottom: insets.bottom + 120 
+            }
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -287,7 +295,7 @@ export const SocialScreen = () => {
         </ScrollView>
 
         <ShareComposer />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -337,8 +345,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   headerBlur: {
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingTop: 15, // Increased for better iOS spacing
+    paddingBottom: 10,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
   },
   headerGlow: {
@@ -430,7 +438,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 100, // Account for pinned header at top
+    paddingTop: 100, // Space for header + tabs (will be adjusted dynamically)
     paddingHorizontal: 0,
     paddingBottom: 120,
   },

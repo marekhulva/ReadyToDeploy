@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { apiService } from '../services/api.service';
+import { backendService } from '../services/api.service';
 
 export function useApi<T = any>(
   apiFunction: (...args: any[]) => Promise<any>
@@ -48,7 +48,7 @@ export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const login = useCallback(async (email: string, password: string) => {
-    const result = await apiService.login(email, password);
+    const result = await backendService.login(email, password);
     if (result.success) {
       setIsAuthenticated(true);
     }
@@ -56,7 +56,7 @@ export function useAuth() {
   }, []);
 
   const register = useCallback(async (email: string, password: string, name: string) => {
-    const result = await apiService.register(email, password, name);
+    const result = await backendService.register(email, password, name);
     if (result.success) {
       setIsAuthenticated(true);
     }
@@ -64,7 +64,7 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
-    await apiService.logout();
+    await backendService.logout();
     setIsAuthenticated(false);
   }, []);
 
@@ -77,28 +77,28 @@ export function useAuth() {
 }
 
 export function useGoals() {
-  const { loading, error, data, execute } = useApi(apiService.getGoals.bind(apiService));
+  const { loading, error, data, execute } = useApi(backendService.getGoals.bind(apiService));
 
   return {
     goals: data,
     loading,
     error,
     fetchGoals: execute,
-    createGoal: apiService.createGoal.bind(apiService),
-    updateGoal: apiService.updateGoal.bind(apiService),
-    deleteGoal: apiService.deleteGoal.bind(apiService),
+    createGoal: backendService.createGoal.bind(apiService),
+    updateGoal: backendService.updateGoal.bind(apiService),
+    deleteGoal: backendService.deleteGoal.bind(apiService),
   };
 }
 
 export function useDailyActions() {
-  const { loading, error, data, execute } = useApi(apiService.getDailyActions.bind(apiService));
+  const { loading, error, data, execute } = useApi(backendService.getDailyActions.bind(apiService));
 
   return {
     actions: data,
     loading,
     error,
     fetchActions: execute,
-    createAction: apiService.createAction.bind(apiService),
-    completeAction: apiService.completeAction.bind(apiService),
+    createAction: backendService.createAction.bind(apiService),
+    completeAction: backendService.completeAction.bind(apiService),
   };
 }

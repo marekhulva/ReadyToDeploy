@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorHandler, NetworkErrorHandler, AppError } from '../utils/errorHandler';
 
-const API_URL = 'http://localhost:3002';
+const API_URL = 'https://freestyle-backend-production.up.railway.app';
 
 class ApiService {
   private token: string | null = null;

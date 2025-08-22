@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,6 +32,7 @@ import * as Haptics from 'expo-haptics';
 const { width, height } = Dimensions.get('window');
 
 export const DailyScreen = () => {
+  const insets = useSafeAreaInsets();
   const actions = useStore(s=>s.actions);
   const actionsLoading = useStore(s=>s.actionsLoading);
   const actionsError = useStore(s=>s.actionsError);
@@ -153,14 +155,20 @@ export const DailyScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Pure Black Background */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000000' }]} />
       
       
       <ScrollView 
         style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { 
+            paddingTop: 20, // Reduced from 50 since SafeAreaView handles top
+            paddingBottom: insets.bottom + 100 // Dynamic bottom padding
+          }
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Date Display */}
@@ -331,7 +339,7 @@ export const DailyScreen = () => {
           </View>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -348,9 +356,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 50,
     paddingHorizontal: 16,
-    paddingBottom: 100,
+    // paddingTop and paddingBottom are now dynamic based on safe areas
   },
   greetingContainer: {
     alignItems: 'center',

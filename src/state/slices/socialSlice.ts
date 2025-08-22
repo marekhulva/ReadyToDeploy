@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { apiService } from '../../services/api.service';
+import { backendService } from '../../services/backend.service';
 import { AuthSlice } from './authSlice';
 
 export type PostType = 'checkin'|'status'|'photo'|'audio'|'goal';
@@ -83,8 +83,8 @@ export const createSocialSlice: StateCreator<
       
       // Fetch both feeds in parallel
       const [circleResponse, followResponse] = await Promise.all([
-        apiService.getFeed('circle'),
-        apiService.getFeed('follow')
+        backendService.getFeed('circle'),
+        backendService.getFeed('follow')
       ]);
       
       // Transform API data to match our Post type
@@ -184,7 +184,7 @@ export const createSocialSlice: StateCreator<
     }));
 
     try {
-      const response = await apiService.reactToPost(id, emoji);
+      const response = await backendService.reactToPost(id, emoji);
       if (!response.success) {
         // Revert optimistic update on failure
         set((s) => ({
@@ -264,7 +264,7 @@ export const createSocialSlice: StateCreator<
     });
 
     try {
-      const response = await apiService.createPost({
+      const response = await backendService.createPost({
         type: postData.type || 'status',
         visibility: postData.visibility || 'circle',
         content: postData.content || '',
@@ -285,14 +285,14 @@ export const createSocialSlice: StateCreator<
           visibility: response.data.visibility,
           content: response.data.content,
           time: 'now',
-          timestamp: response.data.createdAt || new Date().toISOString(), // Include timestamp
+          timestamp: response.data.createdAt || response.data.created_at || new Date().toISOString(), // Include timestamp
           reactions: {},
-          photoUri: response.data.type === 'photo' ? response.data.mediaUrl : undefined,
-          audioUri: response.data.type === 'audio' ? response.data.mediaUrl : undefined,
-          actionTitle: response.data.actionTitle,
-          goal: response.data.goalTitle,
+          photoUri: response.data.type === 'photo' ? (response.data.mediaUrl || response.data.media_url) : undefined,
+          audioUri: response.data.type === 'audio' ? (response.data.mediaUrl || response.data.media_url) : undefined,
+          actionTitle: response.data.actionTitle || response.data.action_title,
+          goal: response.data.goalTitle || response.data.goal_title,
           streak: response.data.streak,
-          goalColor: response.data.goalColor
+          goalColor: response.data.goalColor || response.data.goal_color
         };
         
         set((s) => {
@@ -363,7 +363,7 @@ export const createSocialSlice: StateCreator<
     
     try {
       // TODO: Implement backend API call
-      // const response = await apiService.addComment(postId, content);
+      // const response = await backendService.addComment(postId, content);
       // if (response.success && response.data) {
       //   // Replace optimistic comment with real comment
       // }
@@ -390,7 +390,7 @@ export const createSocialSlice: StateCreator<
   loadComments: async (postId, which) => {
     try {
       // TODO: Implement backend API call to load all comments
-      // const response = await apiService.getComments(postId);
+      // const response = await backendService.getComments(postId);
       // if (response.success && response.data) {
       //   const currentFeed = which === 'circle' ? 'circleFeed' : 'followFeed';
       //   set((s) => ({
