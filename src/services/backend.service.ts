@@ -240,6 +240,81 @@ class BackendService {
       return apiService.getStreaks();
     }
   }
+
+  // Circle methods
+  async createCircle(name: string, description?: string) {
+    if (isSupabaseBackend()) {
+      const circle = await supabaseService.createCircle(name, description);
+      return { success: true, data: circle };
+    } else {
+      // Custom backend doesn't have circles yet
+      throw new Error('Circles not implemented in custom backend');
+    }
+  }
+
+  async joinCircleWithCode(inviteCode: string) {
+    if (isSupabaseBackend()) {
+      const result = await supabaseService.joinCircleWithCode(inviteCode);
+      return result; // Already returns {success, error, circle_id}
+    } else {
+      throw new Error('Circles not implemented in custom backend');
+    }
+  }
+
+  async getMyCircle() {
+    if (isSupabaseBackend()) {
+      const circle = await supabaseService.getMyCircle();
+      return { success: true, data: circle };
+    } else {
+      throw new Error('Circles not implemented in custom backend');
+    }
+  }
+
+  async getCircleMembers(circleId: string) {
+    if (isSupabaseBackend()) {
+      const members = await supabaseService.getCircleMembers(circleId);
+      return { success: true, data: members };
+    } else {
+      throw new Error('Circles not implemented in custom backend');
+    }
+  }
+
+  // Following methods
+  async followUser(userId: string) {
+    if (isSupabaseBackend()) {
+      await supabaseService.followUser(userId);
+      return { success: true };
+    } else {
+      throw new Error('Following not implemented in custom backend');
+    }
+  }
+
+  async unfollowUser(userId: string) {
+    if (isSupabaseBackend()) {
+      await supabaseService.unfollowUser(userId);
+      return { success: true };
+    } else {
+      throw new Error('Following not implemented in custom backend');
+    }
+  }
+
+  async getFollowing() {
+    if (isSupabaseBackend()) {
+      const following = await supabaseService.getFollowing();
+      return { success: true, data: following };
+    } else {
+      throw new Error('Following not implemented in custom backend');
+    }
+  }
+
+  async getFollowers() {
+    if (isSupabaseBackend()) {
+      const followers = await supabaseService.getFollowers();
+      return { success: true, data: followers };
+    } else {
+      throw new Error('Following not implemented in custom backend');
+    }
+  }
 }
 
 export const backendService = new BackendService();

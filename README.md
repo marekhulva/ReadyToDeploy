@@ -7,6 +7,13 @@ It has everything explained in simple terms!
 ## 🎯 Overview
 Freestyle is a social goal tracking app that combines personal productivity with social accountability through two distinct social layers: intimate "Circles" and broader "Following" networks.
 
+### Latest Updates (Jan 2025)
+- ✅ Complete Circles system with invite codes
+- ✅ Following/follower relationships
+- ✅ Supabase backend migration
+- ✅ TestFlight deployment (Build #5)
+- ✅ iOS UI optimizations
+
 ## 📱 Architecture Overview
 
 ### Tech Stack
@@ -32,6 +39,9 @@ DeployTestFlight/
 │   ├── features/          # Feature-based modules
 │   │   ├── daily/         # Daily actions screen
 │   │   ├── social/        # Social feed (Circle/Following)
+│   │   │   ├── SocialScreen.tsx
+│   │   │   ├── CircleMembersModal.tsx
+│   │   │   └── JoinCircleModal.tsx
 │   │   ├── progress/      # Progress tracking
 │   │   └── profile/       # User profile
 │   ├── services/          
@@ -41,9 +51,15 @@ DeployTestFlight/
 │   │   ├── rootStore.ts  # Zustand root store
 │   │   └── slices/        # State slices (auth, goals, social)
 │   └── ui/                # Reusable UI components
+├── database/              # Database migrations and test data
+│   ├── migrations/        # SQL migration files
+│   └── test_data/         # Test data scripts
+├── docs/                  # Documentation
+│   ├── CIRCLES_AND_FOLLOWING.md
+│   └── archive/           # Historical docs
 ├── app.json               # Expo configuration
 ├── eas.json              # EAS Build configuration
-└── supabase-setup.sql    # Database schema
+└── package.json          # Dependencies
 ```
 
 ## 🗄️ Database Schema

@@ -132,7 +132,7 @@ export const LiquidGlassTabs: React.FC<LiquidGlassTabsProps> = ({
                 styles.tabText,
                 activeTab === 'circle' && styles.tabTextActive
               ]}>
-                YOUR CIRCLE
+                CIRCLE
               </Text>
               {activeTab === 'circle' && (
                 <View style={styles.tabBadge}>
@@ -164,7 +164,7 @@ export const LiquidGlassTabs: React.FC<LiquidGlassTabsProps> = ({
                 styles.tabText,
                 activeTab === 'follow' && styles.tabTextActive
               ]}>
-                DISCOVER
+                FOLLOWING
               </Text>
               {activeTab === 'follow' && (
                 <View style={styles.tabBadge}>

@@ -56,11 +56,27 @@ export type SocialSlice = {
   followFeed: Post[];
   feedLoading: boolean;
   feedError: string | null;
+  // Circle data
+  circleId: string | null;
+  circleName: string | null;
+  circleMembers: any[];
+  inviteCode: string | null;
+  // Following data
+  following: any[];
+  followers: any[];
+  // Actions
   fetchFeeds: () => Promise<void>;
   react: (id:string, emoji:string, which:Visibility) => Promise<void>;
   addPost: (p:Partial<Post>) => Promise<void>;
   addComment: (postId: string, content: string, which: Visibility) => Promise<void>;
   loadComments: (postId: string, which: Visibility) => Promise<void>;
+  // Circle actions
+  joinCircle: (inviteCode: string) => Promise<boolean>;
+  loadCircleData: () => Promise<void>;
+  // Following actions
+  followUser: (userId: string) => Promise<void>;
+  unfollowUser: (userId: string) => Promise<void>;
+  loadFollowing: () => Promise<void>;
 };
 
 export const createSocialSlice: StateCreator<
@@ -73,6 +89,14 @@ export const createSocialSlice: StateCreator<
   followFeed: [],
   feedLoading: false,
   feedError: null,
+  // Circle data
+  circleId: null,
+  circleName: null,
+  circleMembers: [],
+  inviteCode: null,
+  // Following data
+  following: [],
+  followers: [],
   
   fetchFeeds: async () => {
     set({ feedLoading: true, feedError: null });
@@ -125,20 +149,20 @@ export const createSocialSlice: StateCreator<
         
         return {
           id: post.id,
-          user: isCurrentUser ? 'You' : (post.user?.name || 'Anonymous'),
-          avatar: isCurrentUser ? (currentUser?.avatar || '👤') : (post.user?.avatar || '👤'),
+          user: isCurrentUser ? 'You' : (post.profiles?.name || post.user?.name || 'Anonymous'),
+          avatar: isCurrentUser ? (currentUser?.avatar || '👤') : (post.profiles?.avatar_url || post.user?.avatar || '👤'),
           type: post.type as PostType,
           visibility: post.visibility as Visibility,
           content: post.content,
-          time: timeAgo(post.createdAt),
-          timestamp: post.createdAt, // Include timestamp for consistent sorting
+          time: timeAgo(post.created_at || post.createdAt),
+          timestamp: post.created_at || post.createdAt, // Include timestamp for consistent sorting
           reactions,
-          photoUri: post.type === 'photo' ? post.mediaUrl : undefined,
-          audioUri: post.type === 'audio' ? post.mediaUrl : undefined,
-          actionTitle: post.actionTitle,
-          goal: post.goalTitle,
+          photoUri: post.type === 'photo' ? (post.media_url || post.mediaUrl) : undefined,
+          audioUri: post.type === 'audio' ? (post.media_url || post.mediaUrl) : undefined,
+          actionTitle: post.action_title || post.actionTitle,
+          goal: post.goal_title || post.goalTitle,
           streak: post.streak,
-          goalColor: post.goalColor
+          goalColor: post.goal_color || post.goalColor
         };
       };
       
@@ -264,6 +288,9 @@ export const createSocialSlice: StateCreator<
     });
 
     try {
+      // Get circle ID if posting to circle feed
+      const circleId = postData.visibility === 'circle' ? get().circleId : null;
+      
       const response = await backendService.createPost({
         type: postData.type || 'status',
         visibility: postData.visibility || 'circle',
@@ -272,7 +299,8 @@ export const createSocialSlice: StateCreator<
         actionTitle: postData.actionTitle,
         goalTitle: postData.goal,
         goalColor: postData.goalColor,
-        streak: postData.streak
+        streak: postData.streak,
+        circleId: circleId
       });
       
       if (response.success && response.data) {
@@ -405,6 +433,92 @@ export const createSocialSlice: StateCreator<
       console.log('Loading comments for post:', postId);
     } catch (error) {
       console.error('Failed to load comments:', error);
+    }
+  },
+  
+  // Circle actions
+  joinCircle: async (inviteCode) => {
+    console.log('Store: Joining circle with code:', inviteCode);
+    try {
+      const result = await backendService.joinCircleWithCode(inviteCode);
+      console.log('Store: Join circle result:', result);
+      
+      if (result.success) {
+        console.log('Successfully joined circle, loading data...');
+        // Load circle data after joining
+        await get().loadCircleData();
+        // Refresh feeds to show circle content
+        await get().fetchFeeds();
+        return true;
+      }
+      console.log('Join circle failed:', result.error);
+      return false;
+    } catch (error) {
+      console.error('Failed to join circle:', error);
+      return false;
+    }
+  },
+  
+  loadCircleData: async () => {
+    try {
+      const circleResult = await backendService.getMyCircle();
+      if (circleResult.success && circleResult.data) {
+        const circle = circleResult.data;
+        
+        // Load circle members
+        const membersResult = await backendService.getCircleMembers(circle.id);
+        const members = membersResult.success ? membersResult.data : [];
+        
+        set({
+          circleId: circle.id,
+          circleName: circle.name,
+          inviteCode: circle.invite_code,
+          circleMembers: members || []
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load circle data:', error);
+    }
+  },
+  
+  // Following actions
+  followUser: async (userId) => {
+    try {
+      await backendService.followUser(userId);
+      // Update following list
+      await get().loadFollowing();
+      // Refresh feeds to show their content
+      await get().fetchFeeds();
+    } catch (error) {
+      console.error('Failed to follow user:', error);
+    }
+  },
+  
+  unfollowUser: async (userId) => {
+    try {
+      await backendService.unfollowUser(userId);
+      // Update following list
+      await get().loadFollowing();
+      // Refresh feeds
+      await get().fetchFeeds();
+    } catch (error) {
+      console.error('Failed to unfollow user:', error);
+    }
+  },
+  
+  loadFollowing: async () => {
+    try {
+      const [followingResult, followersResult] = await Promise.all([
+        backendService.getFollowing(),
+        backendService.getFollowers()
+      ]);
+      
+      set({
+        following: followingResult.success ? followingResult.data : [],
+        followers: followersResult.success ? followersResult.data : []
+      });
+    } catch (error) {
+      console.error('Failed to load following data:', error);
     }
   },
 });

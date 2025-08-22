@@ -233,35 +233,93 @@ class SupabaseService {
   // Posts methods
   async getFeed(type: 'circle' | 'follow' = 'circle') {
     const { data: { user } } = await supabase.auth.getUser();
-    // Allow reading posts even if not authenticated for testing
-    // if (!user) throw new Error('Not authenticated');
-
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles(name, avatar_url),
-        reactions(emoji, user_id)
-      `)
-      .eq('visibility', type)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    console.log('getFeed query result:', { type, count: data?.length, error });
-    if (error) throw error;
     
-    // Transform snake_case to camelCase for frontend compatibility
-    return data?.map(post => ({
-      ...post,
-      userId: post.user_id,
-      mediaUrl: post.media_url,
-      actionTitle: post.action_title,
-      goalTitle: post.goal_title,
-      goalColor: post.goal_color,
-      createdAt: post.created_at,
-      user: post.profiles || { name: 'Unknown User', avatar_url: null }  // Handle missing profile
-    })) || [];
+    // Must be authenticated to see feeds
+    if (!user) {
+      console.log('No authenticated user for feed');
+      return [];
+    }
+    
+    if (type === 'circle') {
+      // Get posts from circle members only
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('circle_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profile?.circle_id) {
+        return []; // No circle, no posts
+      }
+
+      // Get all circle member IDs
+      const { data: members } = await supabase
+        .from('circle_members')
+        .select('user_id')
+        .eq('circle_id', profile.circle_id);
+      
+      const memberIds = members?.map(m => m.user_id) || [];
+      
+      // Get posts from circle members with profile info
+      const { data: posts, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          reactions(emoji, user_id)
+        `)
+        .in('user_id', memberIds)
+        .eq('visibility', 'circle')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      
+      // Get profiles for all post authors
+      const userIds = [...new Set(posts?.map(p => p.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url')
+        .in('id', userIds);
+      
+      // Attach profile info to posts
+      const postsWithProfiles = posts?.map(post => ({
+        ...post,
+        profiles: profiles?.find(p => p.id === post.user_id) || null
+      })) || [];
+      
+      console.log('Circle feed:', { count: postsWithProfiles.length });
+      return postsWithProfiles;
+    } else {
+      // Get posts from people you follow
+      const { data: following } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user?.id);
+      
+      const followingIds = following?.map(f => f.following_id) || [];
+      
+      if (followingIds.length === 0) {
+        return []; // Not following anyone
+      }
+
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profiles(name, avatar_url),
+          reactions(emoji, user_id)
+        `)
+        .in('user_id', followingIds)
+        .eq('visibility', 'follow')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      console.log('Following feed:', { count: data?.length });
+      return data || [];
+    }
   }
+
 
   async createPost(post: {
     type: string;
@@ -272,14 +330,19 @@ class SupabaseService {
     goalTitle?: string;
     goalColor?: string;
     streak?: number;
+    circleId?: string | null;
   }) {
     const { data: { user } } = await supabase.auth.getUser();
     
-    // For local testing, use a test user if not authenticated
-    const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+    // User must be authenticated to post
+    if (!user) {
+      throw new Error('You must be logged in to create posts');
+    }
+    
+    const userId = user.id;
 
     // Map camelCase to snake_case for database
-    const { mediaUrl, actionTitle, goalTitle, goalColor, ...postData } = post;
+    const { mediaUrl, actionTitle, goalTitle, goalColor, circleId, ...postData } = post;
     
     const { data, error } = await supabase
       .from('posts')
@@ -290,6 +353,7 @@ class SupabaseService {
         action_title: actionTitle,  // Map actionTitle to action_title
         goal_title: goalTitle,  // Map goalTitle to goal_title
         goal_color: goalColor,  // Map goalColor to goal_color
+        circle_id: circleId,  // Map circleId to circle_id
       })
       .select()
       .single();
@@ -333,6 +397,226 @@ class SupabaseService {
         callback
       )
       .subscribe();
+  }
+
+  // Circle methods
+  async createCircle(name: string, description?: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('circles')
+      .insert({
+        name,
+        description,
+        created_by: user.id
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    // Auto-join creator to circle
+    await this.joinCircle(data.id);
+    
+    return data;
+  }
+
+  async joinCircleWithCode(inviteCode: string) {
+    const { data, error } = await supabase
+      .rpc('join_circle_with_code', { code: inviteCode });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async joinCircle(circleId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('circle_members')
+      .insert({
+        circle_id: circleId,
+        user_id: user.id
+      });
+
+    if (error) throw error;
+
+    // Update user's current circle
+    await supabase
+      .from('profiles')
+      .update({ circle_id: circleId })
+      .eq('id', user.id);
+  }
+
+  async getMyCircle() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    // Get user's current circle
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('circle_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      return null;
+    }
+
+    if (!profile?.circle_id) {
+      console.log('User has no circle_id set in profile');
+      return null;
+    }
+
+    // Get circle details (simplified query without nested joins)
+    const { data: circle, error: circleError } = await supabase
+      .from('circles')
+      .select('*')
+      .eq('id', profile.circle_id)
+      .single();
+
+    if (circleError) {
+      console.error('Error fetching circle:', circleError);
+      return null;
+    }
+
+    return circle;
+  }
+
+  async getCircleMembers(circleId: string) {
+    console.log('Fetching members for circle:', circleId);
+    
+    // First get the member records
+    const { data: members, error: membersError } = await supabase
+      .from('circle_members')
+      .select('user_id, role, joined_at')
+      .eq('circle_id', circleId);
+
+    if (membersError) {
+      console.error('Error fetching circle members:', membersError);
+      console.error('Failed query: SELECT user_id, role, joined_at FROM circle_members WHERE circle_id =', circleId);
+      throw membersError;
+    }
+
+    if (!members || members.length === 0) {
+      console.log('No members found for circle:', circleId);
+      return [];
+    }
+
+    // Filter out null user_ids and get profiles for valid members
+    const validMembers = members.filter(m => m.user_id !== null);
+    const userIds = validMembers.map(m => m.user_id);
+    
+    console.log('Valid user IDs:', userIds);
+    
+    if (userIds.length === 0) {
+      console.log('No valid user IDs found');
+      return [];
+    }
+    
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, name, username, avatar_url')
+      .in('id', userIds);
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+      throw profilesError;
+    }
+
+    // Combine the data
+    const membersWithProfiles = validMembers.map(member => {
+      const profile = profiles?.find(p => p.id === member.user_id);
+      return {
+        user_id: member.user_id,
+        role: member.role,
+        joined_at: member.joined_at,
+        profiles: profile || { name: 'Unknown', username: 'unknown', avatar_url: null }
+      };
+    });
+    
+    console.log('Fetched circle members with profiles:', membersWithProfiles);
+    return membersWithProfiles;
+  }
+
+  // Following methods
+  async followUser(userId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('follows')
+      .insert({
+        follower_id: user.id,
+        following_id: userId
+      });
+
+    if (error) throw error;
+
+    // Update counts
+    await supabase.rpc('increment', { 
+      table_name: 'profiles', 
+      column_name: 'following_count',
+      row_id: user.id 
+    });
+    
+    await supabase.rpc('increment', { 
+      table_name: 'profiles', 
+      column_name: 'follower_count',
+      row_id: userId 
+    });
+  }
+
+  async unfollowUser(userId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('follows')
+      .delete()
+      .eq('follower_id', user.id)
+      .eq('following_id', userId);
+
+    if (error) throw error;
+  }
+
+  async getFollowing() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('follows')
+      .select(`
+        following_id,
+        profiles!follows_following_id_fkey (
+          id, name, username, avatar_url
+        )
+      `)
+      .eq('follower_id', user.id);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getFollowers() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('follows')
+      .select(`
+        follower_id,
+        profiles!follows_follower_id_fkey (
+          id, name, username, avatar_url
+        )
+      `)
+      .eq('following_id', user.id);
+
+    if (error) throw error;
+    return data || [];
   }
 }
 

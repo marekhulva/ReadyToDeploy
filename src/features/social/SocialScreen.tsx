@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Dimensions, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,8 +25,10 @@ import { LiquidGlassTabs } from './components/LiquidGlassTabs';
 import { PostPromptCard } from './components/PostPromptCard';
 import { NeonDivider } from '../../ui/atoms/NeonDivider';
 import { AnimatedFeedView } from './components/AnimatedFeedView';
-import { Users, TrendingUp, Bell, Sparkles, Activity, Flame } from 'lucide-react-native';
+import { Users, TrendingUp, Bell, Sparkles, Activity, Flame, UserPlus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { CircleMembersModal } from './CircleMembersModal';
+import { JoinCircleModal } from './JoinCircleModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,11 +41,24 @@ export const SocialScreen = () => {
   const completedActions = useStore(s=>s.completedActions);
   const profile = useStore(s=>s.profile);
   const user = useStore(s=>s.user); // Get user for avatar
+  const circleId = useStore(s=>s.circleId);
+  const circleName = useStore(s=>s.circleName);
+  const loadCircleData = useStore(s=>s.loadCircleData);
+  
+  // Modal states
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showJoinCircleModal, setShowJoinCircleModal] = useState(false);
+  
+  // Load circle data on mount
+  React.useEffect(() => {
+    loadCircleData();
+  }, []);
   
   // Debug: Log user avatar
   React.useEffect(() => {
     console.log('SocialScreen - Current user avatar:', user?.avatar);
-  }, [user?.avatar]);
+    console.log('SocialScreen - Circle:', { circleId, circleName });
+  }, [user?.avatar, circleId, circleName]);
   
   // Add public completed actions to the feed
   const publicActions = completedActions.filter(ca => !ca.isPrivate);
@@ -162,15 +177,66 @@ export const SocialScreen = () => {
       {/* Pure Black Background */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000000' }]} />
       
-      {/* Pinned Liquid Glass Tabs at the top */}
-      <View style={[styles.pinnedHeader, { top: insets.top }]}>
-        <LiquidGlassTabs
-          activeTab={feedView}
-          onTabChange={(tab) => {
-            setFeedView(tab);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
-        />
+      {/* Pinned Header with Tabs - iOS optimized */}
+      <View style={[styles.pinnedHeader, { 
+        top: insets.top,
+        paddingTop: 10, // Add padding after safe area
+      }]}>
+        <View style={styles.headerContainer}>
+          {/* Tabs centered with action button on right */}
+          <View style={styles.tabsWrapper}>
+            <LiquidGlassTabs
+              activeTab={feedView}
+              onTabChange={(tab) => {
+                setFeedView(tab);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            />
+          </View>
+          
+          {/* Action button positioned absolutely on the right */}
+          <Pressable 
+            style={styles.headerActionButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (feedView === 'circle') {
+                setShowMembersModal(true);
+              } else {
+                // TODO: Show discover/suggested users
+              }
+            }}
+          >
+            {feedView === 'circle' ? (
+              <Users size={18} color="#FFD700" />
+            ) : (
+              <UserPlus size={18} color="#FFD700" />
+            )}
+          </Pressable>
+        </View>
+        
+        {/* Circle Status */}
+        {feedView === 'circle' && (
+          circleId ? (
+            // Show current circle name
+            <View style={styles.circleStatus}>
+              <Users size={14} color="#FFD700" />
+              <Text style={styles.circleStatusText}>{circleName || 'Loading...'}</Text>
+            </View>
+          ) : (
+            // Join Circle Prompt if no circle
+            <Pressable 
+              style={styles.joinCirclePrompt}
+              onPress={() => setShowJoinCircleModal(true)}
+            >
+              <LinearGradient
+                colors={['rgba(255,215,0,0.1)', 'rgba(255,215,0,0.05)']}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <Users size={16} color="#FFD700" />
+              <Text style={styles.joinCircleText}>Join a Circle to see posts</Text>
+            </Pressable>
+          )
+        )}
       </View>
         
         <ScrollView 
@@ -178,7 +244,7 @@ export const SocialScreen = () => {
           contentContainerStyle={[
             styles.scrollContent,
             { 
-              paddingTop: insets.top + 80, // Safe area + header height
+              paddingTop: insets.top + 90, // Safe area + header height + padding
               paddingBottom: insets.bottom + 120 
             }
           ]}
@@ -295,6 +361,17 @@ export const SocialScreen = () => {
         </ScrollView>
 
         <ShareComposer />
+        
+        {/* Modals */}
+        <CircleMembersModal 
+          visible={showMembersModal}
+          onClose={() => setShowMembersModal(false)}
+        />
+        
+        <JoinCircleModal
+          visible={showJoinCircleModal}
+          onClose={() => setShowJoinCircleModal(false)}
+        />
     </SafeAreaView>
   );
 };
@@ -342,7 +419,89 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    paddingBottom: 8,
+  },
+  headerContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  tabsWrapper: {
+    width: '100%',
+    paddingHorizontal: 60, // Leave space for the action button
+  },
+  headerActionButton: {
+    position: 'absolute',
+    right: 20,
+    top: '50%',
+    transform: [{ translateY: -18 }],
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerActions: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: [{ translateY: -20 }],
+    zIndex: 101,
+  },
+  membersButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.2)',
+  },
+  joinCirclePrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,215,0,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.1)',
     overflow: 'hidden',
+  },
+  joinCircleText: {
+    fontSize: 14,
+    color: '#FFD700',
+    fontWeight: '500',
+  },
+  circleStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginTop: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,215,0,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.1)',
+  },
+  circleStatusText: {
+    color: 'rgba(255,215,0,0.8)',
+    fontSize: 12,
+    fontWeight: '600',
   },
   headerBlur: {
     paddingTop: 15, // Increased for better iOS spacing

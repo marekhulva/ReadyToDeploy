@@ -7,6 +7,10 @@ export type User = {
   email: string;
   name: string;
   avatar?: string;
+  circleId?: string;
+  circleName?: string;
+  followingCount?: number;
+  followerCount?: number;
 };
 
 export type AuthSlice = {
